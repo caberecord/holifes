@@ -345,7 +345,7 @@ export default function POSModule() {
                         {currentStep === 1 && (
                             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                                 <div>
-                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Selecciona un Evento</h2>
+                                    <h2 className="text-xl font-bold text-gray-900 mb-4">Selecciona un Evento (v1.1)</h2>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {events.map(event => (
                                             <div
