@@ -63,6 +63,7 @@ export interface Event {
             // Finance
             paymentMethod?: string; // 'Efectivo', 'Nequi', 'Tarjeta', etc.
             soldBy?: string; // Email of seller
+            purchaseDate?: string; // ISO date string from POS sales
         }>;
     };
 
