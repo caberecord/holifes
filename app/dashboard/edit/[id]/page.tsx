@@ -8,7 +8,8 @@ import EventHeader from "../../../../components/Dashboard/EventManagement/EventH
 import TabMetrics from "../../../../components/Dashboard/EventManagement/TabMetrics";
 import TabAttendees from "../../../../components/Dashboard/EventManagement/TabAttendees";
 import TabConfig from "../../../../components/Dashboard/EventManagement/TabConfig";
-import { Settings, Users, BarChart3, Share2, Ticket, Globe } from "lucide-react";
+import TabAudit from "../../../../components/Dashboard/Event/TabAudit";
+import { Settings, Users, BarChart3, Share2, Ticket, Globe, ShieldAlert } from "lucide-react";
 
 export default function EditEventPage() {
     const params = useParams();
@@ -40,6 +41,7 @@ export default function EditEventPage() {
     const tabs = [
         { id: "metrics", label: "Métricas", icon: BarChart3 },
         { id: "attendees", label: "Tickets y Asistentes", icon: Ticket },
+        { id: "audit", label: "Auditoría", icon: ShieldAlert },
         { id: "config", label: "Configuración", icon: Settings },
         { id: "website", label: "Sitio Web", icon: Globe },
         { id: "integrations", label: "Integraciones", icon: Share2 },
@@ -51,14 +53,14 @@ export default function EditEventPage() {
 
             {/* Main Tabs Navigation */}
             <div className="bg-white border-b border-gray-200 px-6">
-                <div className="flex space-x-8">
+                <div className="flex space-x-8 overflow-x-auto">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
                         return (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center py-4 px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === tab.id
+                                className={`flex items-center py-4 px-1 border-b-2 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id
                                     ? "border-indigo-600 text-indigo-600"
                                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                                     }`}
@@ -75,6 +77,7 @@ export default function EditEventPage() {
             <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 {activeTab === "metrics" && <TabMetrics event={event} />}
                 {activeTab === "attendees" && <TabAttendees event={event} />}
+                {activeTab === "audit" && <TabAudit eventId={event.id!} />}
                 {activeTab === "config" && <TabConfig event={event} />}
                 {activeTab === "integrations" && (
                     <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-gray-200">
