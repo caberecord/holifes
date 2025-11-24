@@ -71,8 +71,15 @@ service cloud.firestore {
       // Creación: Solo el organizador puede crear eventos (por ahora)
       allow create: if isCreatingAsOwner();
 
-      // Actualización/Borrado: Solo el organizador O Super Admin
-      allow update, delete: if isResourceOwner() || isSuperAdmin();
+      // Actualización: Organizador, Staff del organizador, o Super Admin
+      allow update: if isAuthenticated() && (
+        isResourceOwner() || 
+        isStaffOfOrganizer(resource.data.organizerId) ||
+        isSuperAdmin()
+      );
+      
+      // Borrado: Solo el organizador O Super Admin
+      allow delete: if isResourceOwner() || isSuperAdmin();
     }
 
     // Colección de Asistentes (Attendees)
