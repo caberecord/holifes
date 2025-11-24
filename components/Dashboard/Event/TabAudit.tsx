@@ -16,9 +16,16 @@ export default function TabAudit({ eventId }: TabAuditProps) {
 
     const fetchLogs = async () => {
         setLoading(true);
-        const data = await getEventScanLogs(eventId);
-        setLogs(data);
-        setLoading(false);
+        try {
+            console.log('Fetching scan logs for event:', eventId);
+            const data = await getEventScanLogs(eventId);
+            console.log('Scan logs fetched:', data.length, 'records');
+            setLogs(data);
+        } catch (error) {
+            console.error('Error fetching scan logs:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -74,6 +81,11 @@ export default function TabAudit({ eventId }: TabAuditProps) {
 
     return (
         <div className="space-y-6">
+            {/* Breadcrumb / Location Indicator */}
+            <div className="text-sm text-gray-500">
+                Dashboard / Editar Evento / <span className="text-gray-700 font-medium">Auditoría de Escaneos</span>
+            </div>
+
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-900">Registro de Auditoría</h2>
                 <button
