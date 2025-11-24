@@ -1,0 +1,24 @@
+
+> gestion-eventos-app@0.1.0 build
+> next build
+
+   Ôû▓ Next.js 16.0.3 (Turbopack)
+   - Environments: .env.local
+
+ ÔÜá The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+   Creating an optimized production build ...
+ Ô£ô Compiled successfully in 8.9s
+   Running TypeScript ...
+Failed to compile.
+
+./components/Dashboard/Finance/FinanceModule.tsx:74:37
+Type error: Property 'purchaseDate' does not exist on type '{ id: number; Name: string; Email: string; Zone: string; Seat?: string | undefined; Status: string; ticketId: string; isGeneric?: boolean | undefined; checkedIn?: boolean | undefined; checkInTime?: Date | undefined; checkInBy?: string | undefined; paymentMethod?: string | undefined; soldBy?: string | undefined; }'.
+
+  72 |                     recentTransactions.push({
+  73 |                         id: guest.ticketId || Math.random().toString(),
+> 74 |                         date: guest.purchaseDate || event.createdAt, // Fallback
+     |                                     ^
+  75 |                         eventName: event.name,
+  76 |                         buyer: guest.Name,
+  77 |                         amount: price,
+Next.js build worker exited with code: 1 and signal: null
