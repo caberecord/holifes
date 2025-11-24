@@ -185,7 +185,10 @@ export default function CheckInPage() {
                     <div className="grid md:grid-cols-2 gap-6">
                         {/* QR Scanner */}
                         <div>
-                            <QRScanner onScan={handleScan} isProcessing={isProcessing} />
+                            <QRScanner
+                                onScan={handleScan}
+                                isProcessing={isProcessing || validationResult !== null}
+                            />
                         </div>
 
                         {/* Attendance Stats */}

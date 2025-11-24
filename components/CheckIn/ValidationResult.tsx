@@ -128,9 +128,9 @@ export default function ValidationResultDisplay({ result, canViewDetails, onClos
                     {/* Close Button */}
                     <button
                         onClick={onClose}
-                        className="w-full mt-6 bg-gray-900 text-white py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+                        className="w-full mt-6 bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-indigo-700 transition-all transform active:scale-95 shadow-lg"
                     >
-                        Continuar Escaneando
+                        ✓ Aceptar y Continuar
                     </button>
                 </div>
             </div>
