@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
@@ -11,6 +11,9 @@ interface QRScannerProps {
 export default function QRScanner({ onScan, isProcessing }: QRScannerProps) {
     const [scanner, setScanner] = useState<Html5QrcodeScanner | null>(null);
     const [cameraError, setCameraError] = useState<string>("");
+
+    const lastScanRef = useRef<number>(0);
+    const lastCodeRef = useRef<string>("");
 
     useEffect(() => {
         const qrScanner = new Html5QrcodeScanner(
@@ -25,7 +28,11 @@ export default function QRScanner({ onScan, isProcessing }: QRScannerProps) {
 
         qrScanner.render(
             (decodedText) => {
-                if (!isProcessing) {
+                const now = Date.now();
+                // Debounce: Ignore if scanned recently (2 seconds) or if processing
+                if (!isProcessing && (now - lastScanRef.current > 2000 || decodedText !== lastCodeRef.current)) {
+                    lastScanRef.current = now;
+                    lastCodeRef.current = decodedText;
                     onScan(decodedText);
                 }
             },

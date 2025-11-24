@@ -83,14 +83,16 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                         Email: email,
                         Zone: row['Zona'] || row['Zone'] || "General",
                         Seat: row['Silla'] || row['Seat'] || "",
-                        Status: "Confirmado",
+                        Status: "Activo", // Changed to Activo
                         ticketId: secureTicketId,
-                        qrPayload: qrPayload
+                        qrPayload: qrPayload,
+                        checkedIn: false,
+                        checkInTime: null,
+                        checkInBy: null
                     };
                 }));
 
                 const newAttendees = processedData;
-
                 const updatedAttendees = [...attendees, ...newAttendees];
                 setAttendees(updatedAttendees);
 
@@ -145,9 +147,12 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
             Email: manualEmail,
             Zone: manualZone || "General",
             Seat: manualSeat || "",
-            Status: "Confirmado",
+            Status: "Activo", // Changed to Activo
             ticketId: secureTicketId,
-            qrPayload: qrPayload
+            qrPayload: qrPayload,
+            checkedIn: false,
+            checkInTime: null,
+            checkInBy: null
         };
 
         const updatedAttendees = [...attendees, newAttendee];
@@ -197,9 +202,12 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                 Email: `generic-${index + 1}@event.local`,
                 Zone: ticket.zone || "General",
                 Seat: ticket.seat || "",
-                Status: "Confirmado",
+                Status: "Activo", // Changed to Activo
                 ticketId: ticket.ticketId,
-                isGeneric: true
+                isGeneric: true,
+                checkedIn: false,
+                checkInTime: null,
+                checkInBy: null
             }));
 
             const updatedAttendees = [...attendees, ...newAttendees];

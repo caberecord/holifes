@@ -190,12 +190,15 @@ export default function POSModule() {
                     Phone: att.phone,
                     IdNumber: att.idNumber,
                     Zone: selectedZone,
-                    Status: "Confirmado",
+                    Status: "Activo", // Changed to Activo per user request
                     ticketId: secureTicketId,
-                    qrPayload: qrPayload, // New: JSON payload for QR
+                    qrPayload: qrPayload,
                     purchaseDate: new Date().toISOString(),
                     paymentMethod: paymentMethod,
-                    soldBy: user.email
+                    soldBy: user.email,
+                    checkedIn: false,
+                    checkInTime: null,
+                    checkInBy: null
                 };
             }));
 

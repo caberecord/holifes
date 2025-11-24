@@ -198,6 +198,7 @@ export async function validateAndCheckIn(
         // 5. Mark as checked in
         attendees[attendeeIndex] = {
             ...attendee,
+            Status: 'Ingresado', // Update status to reflect usage
             checkedIn: true,
             checkInTime: new Date(),
             checkInBy: staffUid,
