@@ -16,6 +16,8 @@ export async function generateTicketSignature(ticketData: {
     const secretKey = process.env.NEXT_PUBLIC_TICKET_SECRET_KEY || 'default-secret-key-change-in-production';
 
     // Concatenate data to be signed
+    // Note: We do NOT normalize here to allow verifying legacy non-normalized signatures.
+    // Generators should normalize before calling this if desired.
     const dataToSign = `${ticketData.ticketId}|${ticketData.email}|${ticketData.eventId}`;
 
     // Convert secret key and data to Uint8Array
@@ -58,8 +60,27 @@ export async function verifyTicketSignature(
     },
     providedSignature: string
 ): Promise<boolean> {
-    const expectedSignature = await generateTicketSignature(ticketData);
-    return expectedSignature === providedSignature.toUpperCase();
+    // 1. Try with normalized email (Preferred/New Standard)
+    const normalizedEmail = ticketData.email.toLowerCase().trim();
+    const signatureNormalized = await generateTicketSignature({
+        ...ticketData,
+        email: normalizedEmail
+    });
+
+    if (signatureNormalized === providedSignature.toUpperCase()) {
+        return true;
+    }
+
+    // 2. Fallback: Try with raw email (Legacy compatibility)
+    // This handles cases where old tickets were signed with uppercase/mixed emails
+    if (ticketData.email !== normalizedEmail) {
+        const signatureRaw = await generateTicketSignature(ticketData);
+        if (signatureRaw === providedSignature.toUpperCase()) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -74,9 +95,11 @@ export async function generateSecureTicketId(
     email: string,
     eventId: string
 ): Promise<string> {
+    // Normalize email to ensure consistency
+    const normalizedEmail = email.toLowerCase().trim();
     const signature = await generateTicketSignature({
         ticketId: baseId,
-        email,
+        email: normalizedEmail,
         eventId
     });
 
@@ -126,9 +149,11 @@ export async function generateQRPayload(
     eventId: string,
     email: string
 ): Promise<string> {
+    // Normalize email to ensure consistency
+    const normalizedEmail = email.toLowerCase().trim();
     const signature = await generateTicketSignature({
         ticketId,
-        email,
+        email: normalizedEmail,
         eventId
     });
 
