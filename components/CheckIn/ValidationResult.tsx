@@ -1,5 +1,6 @@
 "use client";
 import { CheckCircle, XCircle, AlertTriangle, Clock } from "lucide-react";
+import { useEffect } from "react";
 import { ValidationResult } from "../../types/user";
 
 interface ValidationResultDisplayProps {
@@ -41,6 +42,29 @@ export default function ValidationResultDisplay({ result, canViewDetails, onClos
     };
 
     const config = getStatusConfig();
+
+    useEffect(() => {
+        if (!result) return;
+
+        // Vibration patterns
+        if (navigator.vibrate) {
+            switch (result.status) {
+                case 'VALID':
+                    navigator.vibrate(200); // Short vibration
+                    break;
+                case 'ALREADY_CHECKED_IN':
+                    navigator.vibrate([100, 50, 100, 50, 100]); // Pulse
+                    break;
+                case 'INVALID':
+                case 'WRONG_EVENT':
+                    navigator.vibrate([500, 100, 500]); // Long vibration
+                    break;
+            }
+        }
+
+        // Play sound (optional - requires user interaction first usually, but check-in implies interaction)
+        // We can add Audio objects here if we have assets
+    }, [result]);
 
     return (
         <div
