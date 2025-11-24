@@ -95,6 +95,15 @@ service cloud.firestore {
       );
     }
 
+    // Colección de Logs de Escaneo (Audit Trail)
+    match /scan_logs/{logId} {
+      // Permitir crear logs a cualquier usuario autenticado (Staff/Organizer)
+      allow create: if isAuthenticated();
+      
+      // Permitir leer logs a usuarios autenticados (para Dashboard y validación)
+      // TODO: Restringir lectura solo a logs de eventos propios o asignados
+      allow read: if isAuthenticated();
+    }
 
     // Colección de Configuración (Planes, Sistema)
     match /config/{document=**} {

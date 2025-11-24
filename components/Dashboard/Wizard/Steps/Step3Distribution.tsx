@@ -71,7 +71,7 @@ export default function Step3Distribution() {
     };
 
     const getUnavailableMessage = (method: DistributionMethod) => {
-        if (selectedPlan === 'freemium') {
+        if (selectedPlan === 'freemium-a' || selectedPlan === 'freemium-b') {
             if (method === 'manual' || method === 'stripe') {
                 return 'Disponible en planes Pro y Enterprise';
             }
