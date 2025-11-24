@@ -13,37 +13,47 @@ export async function generateTicketSignature(ticketData: {
     email: string;
     eventId: string;
 }): Promise<string> {
-    const secretKey = process.env.NEXT_PUBLIC_TICKET_SECRET_KEY || 'default-secret-key-change-in-production';
+    try {
+        const secretKey = process.env.NEXT_PUBLIC_TICKET_SECRET_KEY || 'default-secret-key-change-in-production';
 
-    // Concatenate data to be signed
-    // Note: We do NOT normalize here to allow verifying legacy non-normalized signatures.
-    // Generators should normalize before calling this if desired.
-    const dataToSign = `${ticketData.ticketId}|${ticketData.email}|${ticketData.eventId}`;
+        // Concatenate data to be signed
+        // Note: We do NOT normalize here to allow verifying legacy non-normalized signatures.
+        // Generators should normalize before calling this if desired.
+        const dataToSign = `${ticketData.ticketId}|${ticketData.email}|${ticketData.eventId}`;
 
-    // Convert secret key and data to Uint8Array
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(secretKey);
-    const messageData = encoder.encode(dataToSign);
+        // Convert secret key and data to Uint8Array
+        const encoder = new TextEncoder();
+        const keyData = encoder.encode(secretKey);
+        const messageData = encoder.encode(dataToSign);
 
-    // Import key for HMAC
-    const cryptoKey = await crypto.subtle.importKey(
-        'raw',
-        keyData,
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-    );
+        // Check if crypto.subtle is available
+        if (!crypto || !crypto.subtle) {
+            throw new Error('crypto.subtle no disponible en este contexto. Asegúrate de que la app esté en HTTPS.');
+        }
 
-    // Generate HMAC signature
-    const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+        // Import key for HMAC
+        const cryptoKey = await crypto.subtle.importKey(
+            'raw',
+            keyData,
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+        );
 
-    // Convert to hex string (take first 8 bytes for readability)
-    const signatureArray = new Uint8Array(signature);
-    const hexSignature = Array.from(signatureArray.slice(0, 8))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
+        // Generate HMAC signature
+        const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
 
-    return hexSignature.toUpperCase();
+        // Convert to hex string (take first 8 bytes for readability)
+        const signatureArray = new Uint8Array(signature);
+        const hexSignature = Array.from(signatureArray.slice(0, 8))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+
+        return hexSignature.toUpperCase();
+    } catch (error) {
+        console.error('Error generating signature:', error);
+        throw new Error(`Error al generar firma: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 }
 
 /**

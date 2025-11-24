@@ -34,5 +34,6 @@ export interface ScanLog {
         ip?: string;
         appVersion?: string;
         isLegacyQR?: boolean;
+        error?: string; // Error message for debugging
     };
 }

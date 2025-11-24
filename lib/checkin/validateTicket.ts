@@ -232,9 +232,26 @@ export async function validateAndCheckIn(
         };
     } catch (error) {
         console.error('Validation error:', error);
+
+        // Provide more specific error message
+        let errorMessage = 'Error interno al validar ticket';
+        if (error instanceof Error) {
+            errorMessage = `Error: ${error.message}`;
+        }
+
+        await logScanAttempt({
+            ticketId: 'unknown',
+            eventId,
+            scannerId: staffUid,
+            scannerName: staffName,
+            result: 'format_error',
+            failureReason: errorMessage,
+            metadata: { error: error instanceof Error ? error.message : String(error) }
+        });
+
         return {
             status: 'INVALID',
-            message: 'Error interno al validar ticket',
+            message: errorMessage,
         };
     }
 }
