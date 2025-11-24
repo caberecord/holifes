@@ -5,8 +5,8 @@ export function middleware(req: NextRequest) {
     const url = req.nextUrl;
     const hostname = req.headers.get("host") || "";
 
-    // Define allowed domains (including localhost)
-    const allowedDomains = ["holifes.com", "www.holifes.com", "localhost:3000"];
+    // Define allowed domains (including localhost and Vercel preview)
+    const allowedDomains = ["holifes.com", "www.holifes.com", "localhost:3000", "holifes.vercel.app"];
 
     // Check if the hostname is a subdomain
     const isSubdomain = !allowedDomains.includes(hostname);
