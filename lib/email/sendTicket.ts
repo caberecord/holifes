@@ -10,6 +10,8 @@ interface SendTicketParams {
   eventTime: string;
   eventLocation: string;
   ticketId: string;
+  eventId?: string; // Optional for future use
+  qrPayload?: string; // New: JSON QR payload
   zone: string;
   seat?: string;
 }
@@ -22,11 +24,15 @@ export async function sendTicketEmail({
   eventTime,
   eventLocation,
   ticketId,
+  eventId,
+  qrPayload,
   zone,
   seat,
 }: SendTicketParams): Promise<void> {
   try {
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(ticketId)}`;
+    // Use QR JSON payload if available, otherwise fallback to ticketId (legacy)
+    const qrData = qrPayload || ticketId;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`;
 
     const htmlContent = `
       <!DOCTYPE html>

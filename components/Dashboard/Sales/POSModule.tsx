@@ -8,7 +8,7 @@ import {
     User, Phone, CreditCard as IdCard, Printer, Download, RefreshCw, Check, ChevronRight, DollarSign, FileText
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { generateSecureTicketId } from "@/lib/ticketSecurity";
+import { generateSecureTicketId, generateQRPayload } from "@/lib/ticketSecurity";
 import { toast } from "react-toastify";
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -176,6 +176,13 @@ export default function POSModule() {
                     selectedEvent.id!
                 );
 
+                // Generate JSON QR payload (new secure format)
+                const qrPayload = await generateQRPayload(
+                    baseTicketId,
+                    selectedEvent.id!,
+                    att.email
+                );
+
                 return {
                     id: Date.now() + index,
                     Name: att.name,
@@ -185,6 +192,7 @@ export default function POSModule() {
                     Zone: selectedZone,
                     Status: "Confirmado",
                     ticketId: secureTicketId,
+                    qrPayload: qrPayload, // New: JSON payload for QR
                     purchaseDate: new Date().toISOString(),
                     paymentMethod: paymentMethod,
                     soldBy: user.email
@@ -210,6 +218,8 @@ export default function POSModule() {
                             eventTime: selectedEvent.startTime,
                             eventLocation: selectedEvent.location,
                             ticketId: attendee.ticketId,
+                            eventId: selectedEvent.id, // New: Pass eventId for QR generation
+                            qrPayload: attendee.qrPayload, // New: Send JSON payload
                             zone: attendee.Zone,
                             seat: "General"
                         }),
@@ -803,7 +813,7 @@ export default function POSModule() {
 
                                         {/* QR Code */}
                                         <div className="flex justify-center mt-auto pt-2">
-                                            <QRCodeSVG value={att.ticketId} size={120} />
+                                            <QRCodeSVG value={att.qrPayload || att.ticketId} size={120} />
                                         </div>
                                     </div>
                                 </div>

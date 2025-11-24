@@ -12,6 +12,8 @@ export async function POST(request: NextRequest) {
             eventTime,
             eventLocation,
             ticketId,
+            eventId,
+            qrPayload,
             zone,
             seat
         } = body;
@@ -32,6 +34,8 @@ export async function POST(request: NextRequest) {
             eventTime: eventTime || '--:--',
             eventLocation: eventLocation || 'Ubicación por confirmar',
             ticketId,
+            eventId,
+            qrPayload,
             zone: zone || 'General',
             seat,
         });

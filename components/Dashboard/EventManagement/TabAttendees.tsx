@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import * as XLSX from 'xlsx';
-import { generateSecureTicketId } from "../../../lib/ticketSecurity";
+import { generateSecureTicketId, generateQRPayload } from "../../../lib/ticketSecurity";
 import { generateGenericTickets, generateTicketsPDF } from "../../../lib/pdfTickets";
 import { useAuth } from "../../../context/AuthContext";
 import { Edit } from "lucide-react";
@@ -70,6 +70,13 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                         event.id || "unknown"
                     );
 
+                    // Generate JSON QR payload
+                    const qrPayload = await generateQRPayload(
+                        baseTicketId,
+                        event.id || "unknown",
+                        email
+                    );
+
                     return {
                         id: Date.now() + Math.random(),
                         Name: row['Nombre'] || row['Name'] || "Desconocido",
@@ -77,7 +84,8 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                         Zone: row['Zona'] || row['Zone'] || "General",
                         Seat: row['Silla'] || row['Seat'] || "",
                         Status: "Confirmado",
-                        ticketId: secureTicketId
+                        ticketId: secureTicketId,
+                        qrPayload: qrPayload
                     };
                 }));
 
@@ -124,6 +132,13 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
             event.id || "unknown"
         );
 
+        // Generate JSON QR payload
+        const qrPayload = await generateQRPayload(
+            baseTicketId,
+            event.id || "unknown",
+            manualEmail
+        );
+
         const newAttendee = {
             id: Date.now(),
             Name: manualName,
@@ -131,7 +146,8 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
             Zone: manualZone || "General",
             Seat: manualSeat || "",
             Status: "Confirmado",
-            ticketId: secureTicketId
+            ticketId: secureTicketId,
+            qrPayload: qrPayload
         };
 
         const updatedAttendees = [...attendees, newAttendee];
@@ -250,10 +266,10 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                         onClick={() => hasAllowedDistribution && setActiveView("generate")}
                         disabled={!hasAllowedDistribution}
                         className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === "generate"
-                                ? "bg-white text-indigo-600 shadow-sm"
-                                : !hasAllowedDistribution
-                                    ? "text-gray-400 cursor-not-allowed"
-                                    : "text-gray-500 hover:text-gray-700"
+                            ? "bg-white text-indigo-600 shadow-sm"
+                            : !hasAllowedDistribution
+                                ? "text-gray-400 cursor-not-allowed"
+                                : "text-gray-500 hover:text-gray-700"
                             }`}
                     >
                         Generar Tickets / Importar
@@ -596,7 +612,7 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                             </div>
                             <div className="flex justify-center pt-4">
                                 <img
-                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showTicketModal.ticketId}`}
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(showTicketModal.qrPayload || showTicketModal.ticketId)}`}
                                     alt="QR Code"
                                     className="w-32 h-32"
                                 />
