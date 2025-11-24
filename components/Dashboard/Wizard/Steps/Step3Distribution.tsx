@@ -59,7 +59,8 @@ export default function Step3Distribution() {
     // Define availability based on plan
     // For Freemium plans only 'invite' and 'free' methods are allowed
     const planConfig = {
-        'freemium': ['invite', 'free'],
+        'freemium-a': ['invite', 'free'],
+        'freemium-b': ['invite', 'free'],
         'pro': ['manual', 'stripe'],
         'enterprise': ['manual', 'stripe', 'invite', 'free']
     };
@@ -71,7 +72,7 @@ export default function Step3Distribution() {
     };
 
     const getUnavailableMessage = (method: DistributionMethod) => {
-        if (selectedPlan === 'freemium') {
+        if (selectedPlan === 'freemium-a' || selectedPlan === 'freemium-b') {
             if (method === 'manual' || method === 'stripe') {
                 return 'Disponible en planes Pro y Enterprise';
             }
