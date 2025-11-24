@@ -186,6 +186,7 @@ export default function CheckInPage() {
                         {/* QR Scanner */}
                         <div>
                             <QRScanner
+                                key={selectedEventId} // Force remount on event change
                                 onScan={handleScan}
                                 isProcessing={isProcessing || validationResult !== null}
                             />

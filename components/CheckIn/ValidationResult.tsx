@@ -22,7 +22,7 @@ export default function ValidationResultDisplay({ result, canViewDetails, onClos
                 };
             case 'ALREADY_CHECKED_IN':
                 return {
-                    bg: 'bg-yellow-500',
+                    bg: 'bg-red-600',
                     icon: <Clock className="w-24 h-24" />,
                     title: 'Ya Registrado',
                 };

@@ -32,6 +32,7 @@ export default function QRScanner({ onScan, isProcessing }: QRScannerProps) {
             qrbox: { width: 250, height: 250 },
             aspectRatio: 1.0,
             supportedScanTypes: [0], // 0 = SCAN_TYPE_CAMERA (Disable file upload)
+            rememberLastUsedCamera: true, // Persist camera choice
             videoConstraints: {
                 facingMode: { exact: "environment" } // Force back camera
             }
