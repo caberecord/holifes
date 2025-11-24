@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import * as XLSX from 'xlsx';
-import { generateSecureTicketId } from "../../../lib/ticketSecurity";
+import { generateSecureTicketId, generateQRPayload } from "../../../lib/ticketSecurity";
 import { generateGenericTickets, generateTicketsPDF } from "../../../lib/pdfTickets";
 import { useAuth } from "../../../context/AuthContext";
 import { Edit } from "lucide-react";
@@ -70,19 +70,29 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                         event.id || "unknown"
                     );
 
+                    // Generate JSON QR payload
+                    const qrPayload = await generateQRPayload(
+                        baseTicketId,
+                        event.id || "unknown",
+                        email
+                    );
+
                     return {
                         id: Date.now() + Math.random(),
                         Name: row['Nombre'] || row['Name'] || "Desconocido",
                         Email: email,
                         Zone: row['Zona'] || row['Zone'] || "General",
                         Seat: row['Silla'] || row['Seat'] || "",
-                        Status: "Confirmado",
-                        ticketId: secureTicketId
+                        Status: "Activo", // Changed to Activo
+                        ticketId: secureTicketId,
+                        qrPayload: qrPayload,
+                        checkedIn: false,
+                        checkInTime: null,
+                        checkInBy: null
                     };
                 }));
 
                 const newAttendees = processedData;
-
                 const updatedAttendees = [...attendees, ...newAttendees];
                 setAttendees(updatedAttendees);
 
@@ -124,14 +134,25 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
             event.id || "unknown"
         );
 
+        // Generate JSON QR payload
+        const qrPayload = await generateQRPayload(
+            baseTicketId,
+            event.id || "unknown",
+            manualEmail
+        );
+
         const newAttendee = {
             id: Date.now(),
             Name: manualName,
             Email: manualEmail,
             Zone: manualZone || "General",
             Seat: manualSeat || "",
-            Status: "Confirmado",
-            ticketId: secureTicketId
+            Status: "Activo", // Changed to Activo
+            ticketId: secureTicketId,
+            qrPayload: qrPayload,
+            checkedIn: false,
+            checkInTime: null,
+            checkInBy: null
         };
 
         const updatedAttendees = [...attendees, newAttendee];
@@ -181,9 +202,12 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                 Email: `generic-${index + 1}@event.local`,
                 Zone: ticket.zone || "General",
                 Seat: ticket.seat || "",
-                Status: "Confirmado",
+                Status: "Activo", // Changed to Activo
                 ticketId: ticket.ticketId,
-                isGeneric: true
+                isGeneric: true,
+                checkedIn: false,
+                checkInTime: null,
+                checkInBy: null
             }));
 
             const updatedAttendees = [...attendees, ...newAttendees];
@@ -250,10 +274,10 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                         onClick={() => hasAllowedDistribution && setActiveView("generate")}
                         disabled={!hasAllowedDistribution}
                         className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === "generate"
-                                ? "bg-white text-indigo-600 shadow-sm"
-                                : !hasAllowedDistribution
-                                    ? "text-gray-400 cursor-not-allowed"
-                                    : "text-gray-500 hover:text-gray-700"
+                            ? "bg-white text-indigo-600 shadow-sm"
+                            : !hasAllowedDistribution
+                                ? "text-gray-400 cursor-not-allowed"
+                                : "text-gray-500 hover:text-gray-700"
                             }`}
                     >
                         Generar Tickets / Importar
@@ -321,7 +345,11 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                                             {attendee.Seat ? ` - ${attendee.Seat}` : ""}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${attendee.Status === 'Confirmado' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${attendee.Status === 'Ingresado' ? 'bg-blue-100 text-blue-800' :
+                                                    attendee.Status === 'Activo' ? 'bg-yellow-100 text-yellow-800' :
+                                                        attendee.Status === 'Confirmado' ? 'bg-green-100 text-green-800' :
+                                                            'bg-gray-100 text-gray-800'
+                                                }`}>
                                                 {attendee.Status || "Registrado"}
                                             </span>
                                         </td>
@@ -596,7 +624,7 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                             </div>
                             <div className="flex justify-center pt-4">
                                 <img
-                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${showTicketModal.ticketId}`}
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(showTicketModal.qrPayload || showTicketModal.ticketId)}`}
                                     alt="QR Code"
                                     className="w-32 h-32"
                                 />

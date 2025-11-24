@@ -16,6 +16,8 @@ export async function generateTicketSignature(ticketData: {
     const secretKey = process.env.NEXT_PUBLIC_TICKET_SECRET_KEY || 'default-secret-key-change-in-production';
 
     // Concatenate data to be signed
+    // Note: We do NOT normalize here to allow verifying legacy non-normalized signatures.
+    // Generators should normalize before calling this if desired.
     const dataToSign = `${ticketData.ticketId}|${ticketData.email}|${ticketData.eventId}`;
 
     // Convert secret key and data to Uint8Array
@@ -58,8 +60,27 @@ export async function verifyTicketSignature(
     },
     providedSignature: string
 ): Promise<boolean> {
-    const expectedSignature = await generateTicketSignature(ticketData);
-    return expectedSignature === providedSignature.toUpperCase();
+    // 1. Try with normalized email (Preferred/New Standard)
+    const normalizedEmail = ticketData.email.toLowerCase().trim();
+    const signatureNormalized = await generateTicketSignature({
+        ...ticketData,
+        email: normalizedEmail
+    });
+
+    if (signatureNormalized === providedSignature.toUpperCase()) {
+        return true;
+    }
+
+    // 2. Fallback: Try with raw email (Legacy compatibility)
+    // This handles cases where old tickets were signed with uppercase/mixed emails
+    if (ticketData.email !== normalizedEmail) {
+        const signatureRaw = await generateTicketSignature(ticketData);
+        if (signatureRaw === providedSignature.toUpperCase()) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -74,9 +95,11 @@ export async function generateSecureTicketId(
     email: string,
     eventId: string
 ): Promise<string> {
+    // Normalize email to ensure consistency
+    const normalizedEmail = email.toLowerCase().trim();
     const signature = await generateTicketSignature({
         ticketId: baseId,
-        email,
+        email: normalizedEmail,
         eventId
     });
 
@@ -102,3 +125,92 @@ export function parseSecureTicketId(fullTicketId: string): {
 
     return { baseId, signature };
 }
+
+/**
+ * QR Payload Interface (v1.0)
+ * JSON structure embedded in QR codes for enhanced security
+ */
+export interface QRPayload {
+    tId: string;      // Ticket ID (without signature)
+    eId: string;      // Event ID
+    s: string;        // HMAC Signature
+    v: string;        // Version (for future compatibility)
+}
+
+/**
+ * Generate JSON payload for QR code (New secure format)
+ * @param ticketId - Base ticket ID
+ * @param eventId - Event ID
+ * @param email - Attendee email
+ * @returns Promise<string> - JSON string to embed in QR
+ */
+export async function generateQRPayload(
+    ticketId: string,
+    eventId: string,
+    email: string
+): Promise<string> {
+    // Normalize email to ensure consistency
+    const normalizedEmail = email.toLowerCase().trim();
+    const signature = await generateTicketSignature({
+        ticketId,
+        email: normalizedEmail,
+        eventId
+    });
+
+    const payload: QRPayload = {
+        tId: ticketId,
+        eId: eventId,
+        s: signature,
+        v: "1.0"
+    };
+
+    return JSON.stringify(payload);
+}
+
+/**
+ * Parse QR payload with backward compatibility
+ * @param qrContent - Raw QR string (JSON or legacy format)
+ * @returns Parsed payload or null if invalid
+ */
+export function parseQRPayload(qrContent: string): QRPayload | { legacy: true; ticketId: string } | null {
+    try {
+        // Try parsing as JSON first (new format)
+        const payload = JSON.parse(qrContent) as QRPayload;
+
+        // Validate required fields
+        if (payload.tId && payload.eId && payload.s && payload.v) {
+            return payload;
+        }
+
+        return null;
+    } catch {
+        // Not JSON - assume legacy format (plain ticketId string)
+        // Legacy format: "POS-ABC123-SIGNATURE" or similar
+        if (qrContent && typeof qrContent === 'string' && qrContent.length > 0) {
+            return { legacy: true, ticketId: qrContent };
+        }
+
+        return null;
+    }
+}
+
+/**
+ * Verify QR payload signature
+ * @param payload - Parsed QR payload
+ * @param email - Attendee email
+ * @returns Promise<boolean> - True if valid
+ */
+export async function verifyQRPayload(
+    payload: QRPayload,
+    email: string
+): Promise<boolean> {
+    return verifyTicketSignature(
+        {
+            ticketId: payload.tId,
+            email,
+            eventId: payload.eId
+        },
+        payload.s
+    );
+}
+

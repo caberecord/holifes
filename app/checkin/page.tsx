@@ -85,7 +85,12 @@ export default function CheckInPage() {
         if (!selectedEventId || isProcessing) return;
 
         setIsProcessing(true);
-        const result = await validateAndCheckIn(ticketId, selectedEventId, appUser?.uid || "");
+        const result = await validateAndCheckIn(
+            ticketId,
+            selectedEventId,
+            appUser?.uid || "",
+            appUser?.displayName || appUser?.email || "Staff"
+        );
         setValidationResult(result);
         setIsProcessing(false);
 

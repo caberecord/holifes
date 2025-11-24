@@ -55,6 +55,7 @@ export interface Event {
             Seat?: string;
             Status: string;
             ticketId: string;
+            qrPayload?: string; // JSON QR payload (new secure format)
             isGeneric?: boolean;
             // Check-in tracking
             checkedIn?: boolean;
