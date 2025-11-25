@@ -68,6 +68,8 @@ export type Props = {
         title?: string;
         alignment: "left" | "center" | "right";
         description?: string;
+        backgroundColor?: string;
+        textColor?: string;
     };
     VenueWidget: {
         // No props for now, reads from context
@@ -403,10 +405,14 @@ export const config: Config<Props> = {
                     type: "textarea",
                     label: "Descripción",
                 },
+                backgroundColor: styleFields.backgroundColor,
+                textColor: styleFields.textColor,
             },
             defaultProps: {
                 url: "",
                 alignment: "center",
+                backgroundColor: "#FFFFFF",
+                textColor: "#000000",
             },
             render: (props) => (
                 <VideoPlayer {...props} />

@@ -1,76 +1,87 @@
+'use client';
+
 import React from 'react';
 
 interface VideoPlayerProps {
     url: string;
     title?: string;
-    alignment?: "left" | "center" | "right";
+    alignment: "left" | "center" | "right";
     description?: string;
+    backgroundColor?: string;
+    textColor?: string;
 }
 
-export function VideoPlayer({
+export const VideoPlayer = ({
     url,
     title,
     alignment = "center",
-    description
-}: VideoPlayerProps) {
-    // Función simple para obtener ID de YouTube o Vimeo
+    description,
+    backgroundColor,
+    textColor
+}: VideoPlayerProps) => {
+    // Helper to get embed URL
     const getEmbedUrl = (url: string) => {
-        if (!url) return '';
+        if (!url) return "";
 
         // YouTube
-        const youtubeMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^#&?]*).*/);
-        if (youtubeMatch && youtubeMatch[1]) {
-            return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+        if (url.includes("youtube.com") || url.includes("youtu.be")) {
+            const videoId = url.includes("v=")
+                ? url.split("v=")[1].split("&")[0]
+                : url.split("/").pop();
+            return `https://www.youtube.com/embed/${videoId}`;
         }
 
         // Vimeo
-        const vimeoMatch = url.match(/(?:vimeo\.com\/)([0-9]+)/);
-        if (vimeoMatch && vimeoMatch[1]) {
-            return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+        if (url.includes("vimeo.com")) {
+            const videoId = url.split("/").pop();
+            return `https://player.vimeo.com/video/${videoId}`;
         }
 
-        return url; // Fallback
+        return url;
     };
 
     const embedUrl = getEmbedUrl(url);
 
-    if (!embedUrl) {
-        return (
-            <div className="w-full aspect-video bg-gray-100 flex items-center justify-center text-gray-400 rounded-lg border-2 border-dashed border-gray-300">
-                <p>Ingresa una URL de video válida</p>
-            </div>
-        );
-    }
-
-    const isCenter = alignment === "center";
+    const alignmentClass = {
+        left: "text-left items-start",
+        center: "text-center items-center",
+        right: "text-right items-end"
+    }[alignment];
 
     return (
-        <div className="w-full max-w-7xl mx-auto p-4 md:p-8">
-            {title && <h3 className={`text-2xl md:text-3xl font-bold mb-8 ${isCenter ? 'text-center' : 'text-left'}`}>{title}</h3>}
+        <section
+            className="w-full py-12 px-4"
+            style={{
+                backgroundColor: backgroundColor || 'transparent',
+                color: textColor || 'inherit'
+            }}
+        >
+            <div className={`max-w-4xl mx-auto flex flex-col ${alignmentClass}`}>
+                {title && (
+                    <h2 className="text-3xl font-bold mb-6">{title}</h2>
+                )}
 
-            <div className={`flex flex-col ${!isCenter ? 'md:flex-row' : ''} ${alignment === 'right' ? 'md:flex-row-reverse' : ''} gap-8 items-center`}>
-                {/* Video Container */}
-                <div className={`w-full ${isCenter ? 'max-w-4xl mx-auto' : 'md:w-1/2'}`}>
-                    <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-lg">
+                {embedUrl ? (
+                    <div className="w-full aspect-video rounded-xl overflow-hidden shadow-xl mb-6">
                         <iframe
                             src={embedUrl}
-                            title={title || "Video player"}
-                            className="absolute top-0 left-0 w-full h-full"
+                            className="w-full h-full"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowFullScreen
                         />
                     </div>
-                </div>
-
-                {/* Description Container */}
-                {description && (
-                    <div className={`w-full ${isCenter ? 'max-w-4xl mx-auto text-center' : 'md:w-1/2 text-left'}`}>
-                        <div className="prose prose-lg text-gray-600">
-                            <p>{description}</p>
-                        </div>
+                ) : (
+                    <div className="w-full aspect-video bg-gray-100 rounded-xl flex items-center justify-center mb-6">
+                        <p className="text-gray-500">Ingresa una URL de video válida</p>
                     </div>
                 )}
+
+                {description && (
+                    <p className="text-lg opacity-90 max-w-2xl">
+                        {description}
+                    </p>
+                )}
             </div>
-        </div>
+        </section>
     );
-}
+};

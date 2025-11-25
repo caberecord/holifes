@@ -8,12 +8,14 @@ interface EventHeroProps {
     overlayOpacity?: number;
 
     // Content
-    // title se toma del evento
-    // backgroundImage se toma del evento
-    // ctaText eliminado
-    // ctaLink eliminado
+    image?: string; // Imagen manual desde Puck
+    subtitle?: string;
+    showDate?: boolean;
+    showLocation?: boolean;
+    showPaymentButton?: boolean;
 
     // Style
+    overlay?: "none" | "light" | "dark";
     titleAlignment?: 'left' | 'center' | 'right';
     backgroundColor?: string;
     textColor?: string;
@@ -23,6 +25,12 @@ interface EventHeroProps {
 export const EventHero = ({
     height = "600px",
     overlayOpacity = 0.5,
+    image,
+    subtitle,
+    showDate = true,
+    showLocation = true,
+    showPaymentButton = false,
+    overlay = "dark",
     titleAlignment = 'center',
     backgroundColor,
     textColor,
@@ -58,8 +66,8 @@ export const EventHero = ({
     const fontClass = fontMap[fontFamily] || fontMap.modern;
     const actualTitle = event?.name || "Título del Evento";
 
-    // Prioridad: Imagen del evento -> Placeholder
-    const actualImage = event?.imageUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30";
+    // Prioridad: Imagen manual (Puck) -> Imagen del evento -> Placeholder
+    const actualImage = image || event?.imageUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30";
 
     // Alignment classes
     const alignmentClass = {
@@ -67,6 +75,19 @@ export const EventHero = ({
         center: 'items-center text-center',
         right: 'items-end text-right'
     }[titleAlignment] || 'items-center text-center';
+
+    // Overlay logic
+    const getOverlayStyle = () => {
+        if (overlay === 'none') return { backgroundColor: 'transparent', opacity: 0 };
+        if (overlay === 'light') return { backgroundColor: '#ffffff', opacity: 0.3 };
+        // Default to dark or custom background color
+        return {
+            backgroundColor: backgroundColor || '#000000',
+            opacity: overlayOpacity
+        };
+    };
+
+    const overlayStyle = getOverlayStyle();
 
     return (
         <section
@@ -85,8 +106,8 @@ export const EventHero = ({
             <div
                 className="absolute inset-0 transition-colors duration-300"
                 style={{
-                    backgroundColor: backgroundColor || '#000000',
-                    opacity: overlayOpacity
+                    backgroundColor: overlayStyle.backgroundColor,
+                    opacity: overlayStyle.opacity
                 }}
             />
 
@@ -100,13 +121,41 @@ export const EventHero = ({
                         {actualTitle}
                     </h1>
 
-                    {/* Date/Time Badge if available */}
-                    {event?.startDate && (
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white mb-8">
-                            <span className="text-sm font-medium">
-                                {new Date(event.startDate).toLocaleDateString()}
-                            </span>
-                        </div>
+                    {subtitle && (
+                        <p
+                            className="text-xl md:text-2xl mb-8 opacity-90"
+                            style={{ color: textColor || '#ffffff' }}
+                        >
+                            {subtitle}
+                        </p>
+                    )}
+
+                    {/* Info Badges (Date & Location) */}
+                    <div className="flex flex-wrap gap-4 mb-8 justify-center">
+                        {showDate && event?.startDate && (
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white">
+                                <span className="text-sm font-medium">
+                                    {new Date(event.startDate).toLocaleDateString()}
+                                </span>
+                            </div>
+                        )}
+
+                        {showLocation && event?.location && (
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white">
+                                <span className="text-sm font-medium">
+                                    {event.location}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Payment Button */}
+                    {showPaymentButton && (
+                        <button
+                            className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-full transition-all transform hover:scale-105 shadow-lg"
+                        >
+                            Comprar Entradas
+                        </button>
                     )}
                 </div>
             </div>
