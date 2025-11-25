@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useEventContext } from "@/lib/context/EventContext";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { Facebook, Instagram, Twitter, Youtube, Linkedin, Globe, Mail, Phone, MapPin } from "lucide-react";
+import { Facebook, Instagram, Twitter, Youtube, Linkedin, Globe, Mail, Phone } from "lucide-react";
 import Link from "next/link";
 
 interface FooterProps {
@@ -175,9 +175,22 @@ export function Footer({
                 </div>
             </div>
 
-            <div className="border-t border-white/10 mt-12 pt-8 text-center text-sm opacity-50">
-                <p>© {currentYear} {displayName}. Todos los derechos reservados.</p>
-                <p className="mt-2 text-xs">Powered by Holifes</p>
+            <div className="border-t border-white/10 mt-12 pt-8 flex flex-col items-center justify-center gap-4">
+                <p className="text-sm opacity-60">
+                    hecho con
+                </p>
+                <a
+                    href="https://www.holifes.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="transition-opacity hover:opacity-80"
+                >
+                    <img
+                        src="/logo_blanco_holifes.png"
+                        alt="Holifes"
+                        className="h-8 w-auto"
+                    />
+                </a>
             </div>
         </footer>
     );

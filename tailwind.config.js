@@ -23,6 +23,13 @@ module.exports = {
                 cormorant: ['var(--font-cormorant)'],
                 lilita: ['var(--font-lilita)'],
                 space: ['var(--font-space-mono)'],
+                // Nuevas fuentes
+                harlow: ['"Harlow Solid Italic"', 'cursive'],
+                curlz: ['"Curlz MT"', 'cursive'],
+                baguet: ['"Baguet Script"', 'cursive'],
+                cascadia: ['"Cascadia Mono ExtraLight"', 'monospace'],
+                varsity: ['"Varsity Regular"', 'sans-serif'],
+                freshman: ['"Freshman"', 'sans-serif'],
             },
         },
     },

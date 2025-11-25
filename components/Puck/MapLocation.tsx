@@ -41,6 +41,12 @@ export function MapLocation({
         cormorant: 'font-cormorant',
         lilita: 'font-lilita',
         space: 'font-space',
+        harlow: 'font-harlow',
+        curlz: 'font-curlz',
+        baguet: 'font-baguet',
+        cascadia: 'font-cascadia',
+        varsity: 'font-varsity',
+        freshman: 'font-freshman',
         // Fallbacks
         modern: 'font-inter',
         bold: 'font-anton',
@@ -89,7 +95,7 @@ export function MapLocation({
                 <div className={`flex flex-col ${!isCenter ? 'md:flex-row' : ''} ${alignment === 'right' ? 'md:flex-row-reverse' : ''} gap-8 items-center`}>
                     {/* Map */}
                     {showMap && mapSrc && (
-                        <div className={`w-full ${isCenter ? 'max-w-4xl mx-auto' : 'md:w-1/2'}`}>
+                        <div className={`w-full ${isCenter ? 'max-w-4xl mx-auto' : 'md:w-1/2'} ${alignment === 'right' ? 'text-right' : ''}`}>
                             <iframe
                                 src={mapSrc}
                                 width="100%"
@@ -104,7 +110,7 @@ export function MapLocation({
                     )}
 
                     {/* Info */}
-                    <div className={`w-full ${isCenter ? 'max-w-4xl mx-auto text-center' : 'md:w-1/2 text-left'} flex flex-col justify-center`}>
+                    <div className={`w-full ${isCenter ? 'max-w-4xl mx-auto text-center' : 'md:w-1/2'} ${alignment === 'right' ? 'text-right items-end' : 'text-left items-start'} flex flex-col justify-center`}>
                         <h3
                             className="text-2xl font-bold mb-4"
                             style={{ color: textColor || '#111827' }}

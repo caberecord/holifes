@@ -130,15 +130,15 @@ const styleFields = {
     backgroundColor: {
         type: "custom" as const,
         label: "Color de Fondo",
-        render: ({ value, onChange }: any) => (
-            <ColorPickerField value={value} onChange={onChange} />
+        render: ({ value, onChange, field }: any) => (
+            <ColorPickerField value={value} onChange={onChange} label={field.label} />
         ),
     },
     textColor: {
         type: "custom" as const,
         label: "Color Tipografía",
-        render: ({ value, onChange }: any) => (
-            <ColorPickerField value={value} onChange={onChange} />
+        render: ({ value, onChange, field }: any) => (
+            <ColorPickerField value={value} onChange={onChange} label={field.label} />
         ),
     },
     fontFamily: {
@@ -155,6 +155,13 @@ const styleFields = {
             { label: "Cormorant Garamond", value: "cormorant" },
             { label: "Lilita One", value: "lilita" },
             { label: "Space Mono", value: "space" },
+            // Nuevas fuentes solicitadas
+            { label: "Harlow Solid Italic", value: "harlow" },
+            { label: "Curlz MT", value: "curlz" },
+            { label: "Baguet Script", value: "baguet" },
+            { label: "Cascadia Mono ExtraLight", value: "cascadia" },
+            { label: "Varsity Regular", value: "varsity" },
+            { label: "Freshman", value: "freshman" },
         ],
     },
 };

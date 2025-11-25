@@ -39,6 +39,12 @@ export function PhotoCarousel({
         cormorant: 'font-cormorant',
         lilita: 'font-lilita',
         space: 'font-space',
+        harlow: 'font-harlow',
+        curlz: 'font-curlz',
+        baguet: 'font-baguet',
+        cascadia: 'font-cascadia',
+        varsity: 'font-varsity',
+        freshman: 'font-freshman',
         // Fallbacks
         modern: 'font-inter',
         bold: 'font-anton',
@@ -185,8 +191,8 @@ export function PhotoCarousel({
                             key={idx}
                             onClick={() => setCurrentIndex(idx)}
                             className={`w-3 h-3 rounded-full transition-all ${idx === currentIndex
-                                    ? 'bg-indigo-500 w-6'
-                                    : 'bg-gray-600 hover:bg-gray-500'
+                                ? 'bg-indigo-500 w-6'
+                                : 'bg-gray-600 hover:bg-gray-500'
                                 }`}
                         />
                     ))}

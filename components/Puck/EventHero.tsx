@@ -68,6 +68,12 @@ export function EventHero({
         cormorant: 'font-cormorant',
         lilita: 'font-lilita',
         space: 'font-space',
+        harlow: 'font-harlow',
+        curlz: 'font-curlz',
+        baguet: 'font-baguet',
+        cascadia: 'font-cascadia',
+        varsity: 'font-varsity',
+        freshman: 'font-freshman',
         // Fallbacks
         modern: 'font-inter',
         bold: 'font-anton',
