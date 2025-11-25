@@ -16,6 +16,18 @@ export default function EditEventPage() {
     const [event, setEvent] = useState<Event | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("metrics");
+    const [baseDomain, setBaseDomain] = useState("holifes.com");
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const host = window.location.host;
+            if (host.includes("localhost")) {
+                setBaseDomain("localhost:3000");
+            } else {
+                setBaseDomain("holifes.com");
+            }
+        }
+    }, []);
 
     useEffect(() => {
         const fetchEvent = async () => {
@@ -46,19 +58,6 @@ export default function EditEventPage() {
         { id: "website", label: "Sitio Web", icon: Globe },
         { id: "integrations", label: "Integraciones", icon: Share2 },
     ];
-
-    const [baseDomain, setBaseDomain] = useState("holifes.com");
-
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            const host = window.location.host;
-            if (host.includes("localhost")) {
-                setBaseDomain("localhost:3000");
-            } else {
-                setBaseDomain("holifes.com");
-            }
-        }
-    }, []);
 
     return (
         <div className="min-h-screen bg-gray-50">
