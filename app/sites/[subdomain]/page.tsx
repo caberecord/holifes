@@ -13,33 +13,41 @@ type PageProps = {
 };
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {
-    const params = await props.params;
-    const event = await getEventBySubdomain(params.subdomain);
+    try {
+        const params = await props.params;
+        const event = await getEventBySubdomain(params.subdomain);
 
-    if (!event) {
+        if (!event) {
+            return {
+                title: 'Evento no encontrado',
+            };
+        }
+
+        const heroImage = event.layout_data?.root?.props?.image || event.layout_data?.root?.props?.backgroundImage;
+
         return {
-            title: 'Evento no encontrado',
+            title: `${event.name} | Entradas y Registro`,
+            description: event.description || `Asiste a ${event.name}. Consigue tus entradas aquí.`,
+            openGraph: {
+                title: event.name,
+                description: event.description || `Detalles del evento ${event.name}`,
+                images: heroImage ? [{ url: heroImage }] : [],
+                type: 'website',
+            },
+            twitter: {
+                card: 'summary_large_image',
+                title: event.name,
+                description: event.description || `Detalles del evento ${event.name}`,
+                images: heroImage ? [heroImage] : [],
+            },
+        };
+    } catch (error) {
+        console.error("Error generating metadata:", error);
+        return {
+            title: 'Error',
+            description: 'Ocurrió un error al cargar el evento.'
         };
     }
-
-    const heroImage = event.layout_data?.root?.props?.image || event.layout_data?.root?.props?.backgroundImage;
-
-    return {
-        title: `${event.name} | Entradas y Registro`,
-        description: event.description || `Asiste a ${event.name}. Consigue tus entradas aquí.`,
-        openGraph: {
-            title: event.name,
-            description: event.description || `Detalles del evento ${event.name}`,
-            images: heroImage ? [{ url: heroImage }] : [],
-            type: 'website',
-        },
-        twitter: {
-            card: 'summary_large_image',
-            title: event.name,
-            description: event.description || `Detalles del evento ${event.name}`,
-            images: heroImage ? [heroImage] : [],
-        },
-    };
 }
 
 export default async function EventSitePage(props: PageProps) {
