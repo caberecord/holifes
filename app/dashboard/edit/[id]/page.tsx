@@ -96,7 +96,7 @@ export default function EditEventPage() {
                                     Usa nuestra IA para generar el diseño y contenido en segundos.
                                 </p>
 
-                                {event.microsite?.enabled && (
+                                {event.status_site === 'published' && event.subdomain && (
                                     <div className="mt-6 p-4 bg-green-50 border border-green-100 rounded-lg flex items-start gap-3">
                                         <div className="p-2 bg-green-100 rounded-full text-green-600">
                                             <Globe className="w-5 h-5" />
@@ -107,12 +107,12 @@ export default function EditEventPage() {
                                                 Tu evento está visible en:
                                             </p>
                                             <a
-                                                href={`http://${event.microsite.subdomain}.holifes.com`}
+                                                href={`http://${event.subdomain}.localhost:3000`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-sm font-bold text-green-700 hover:underline mt-1 block"
                                             >
-                                                {event.microsite.subdomain}.holifes.com
+                                                {event.subdomain}.holifes.com
                                             </a>
                                         </div>
                                     </div>
@@ -121,12 +121,24 @@ export default function EditEventPage() {
 
                             <div className="flex flex-col gap-3 w-full md:w-auto">
                                 <a
-                                    href={`/dashboard/events/${event.id}/builder`}
+                                    href={`/dashboard/events/${event.id}/builder-v2`}
                                     className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                 >
                                     <Globe className="w-5 h-5 mr-2" />
-                                    {event.microsite?.enabled ? "Editar Sitio" : "Diseñar Sitio Web"}
+                                    {event.status_site === 'published' ? 'Editar Sitio' : 'Diseñar Sitio Web'}
                                 </a>
+
+                                {event.status_site === 'published' && event.subdomain && (
+                                    <a
+                                        href={`http://${event.subdomain}.localhost:3000`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    >
+                                        <Globe className="w-5 h-5 mr-2" />
+                                        Ver Sitio Publicado
+                                    </a>
+                                )}
                             </div>
                         </div>
                     </div>

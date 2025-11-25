@@ -1,0 +1,336 @@
+﻿Arquitectura de Sistemas Distribuidos para Plataformas de Eventos Multi-Tenant: Implementación Integral con Next.js, Edición Visual y Monetización Escalable
+
+
+
+
+1. Fundamentos de la Arquitectura Multi-Tenant y Enrutamiento Dinámico
+
+
+El desarrollo de una plataforma de gestión de eventos que aspira a competir con soluciones de nivel empresarial (como Eventbrite o Luma) requiere una arquitectura de software que trascienda las aplicaciones web monolíticas tradicionales. El requisito central de proporcionar páginas promocionales con subdominios personalizados (ej. conciertodeverano.holifes.com) para cada evento, manteniendo una única base de código y base de datos, define el sistema como una arquitectura multi-tenant de base de datos compartida (Shared Database, Shared Schema). Este enfoque maximiza la eficiencia de los recursos y simplifica el mantenimiento, pero impone desafíos significativos en el enrutamiento, la seguridad y el aislamiento de datos.
+
+
+1.1 Ingeniería de Enrutamiento mediante Middleware en el Edge
+
+
+La piedra angular de esta arquitectura en el ecosistema de Next.js (específicamente versiones 14 y 15 con App Router) es el uso avanzado del Middleware ejecutado en el Edge Runtime. A diferencia de los servidores tradicionales que procesan solicitudes en una ubicación centralizada, el Edge Middleware intercepta las solicitudes HTTP lo más cerca posible del usuario final, permitiendo una manipulación de rutas de latencia ultra baja antes de que la lógica de renderizado principal siquiera comience.1
+El mecanismo para lograr subdominios dinámicos no se basa en la creación física de rutas o carpetas para cada cliente, sino en la reescritura de URL (URL Rewriting). El flujo técnico robusto que debe implementarse es el siguiente:
+1. Intercepción de Solicitud: El archivo middleware.ts captura cada petición entrante.
+2. Extracción del Host: Se analiza el encabezado Host de la solicitud HTTP. Por ejemplo, si la solicitud proviene de conciertodeverano.holifes.com, el sistema identifica conciertodeverano como el identificador del inquilino (tenant ID).3
+3. Normalización de Entornos: Es crítico distinguir programáticamente entre entornos de producción, previsualización (Vercel Preview) y desarrollo local (localhost). En desarrollo, el subdominio suele simularse mediante entradas en el archivo /etc/hosts (ej. 127.0.0.1 conciertodeverano.localhost), lo que requiere que el middleware sea capaz de parsear tanto dominios de nivel superior como dominios locales con puertos específicos.1
+4. Reescritura Transparente: Una vez validado el subdominio, el middleware no redirige al usuario (lo que cambiaría la URL en la barra del navegador, afectando la experiencia de marca y el SEO), sino que reescribe la ruta interna. Una solicitud a conciertodeverano.holifes.com/agenda se transforma internamente en /app/[site]/agenda, donde [site] es un parámetro dinámico que toma el valor conciertodeverano.
+Este patrón permite que una sola definición de página en Next.js (app/[site]/page.tsx) sirva a infinitos eventos, cada uno con su propio contenido, pero compartiendo la misma estructura lógica y componentes de React.1
+
+
+1.2 Configuración de Infraestructura DNS y Certificados SSL
+
+
+Para que este sistema funcione en producción de manera "robusta y profesional", la configuración del DNS es tan vital como el código. Se requiere una estrategia de Wildcard DNS (DNS Comodín).
+* Registros CNAME: Se debe configurar un registro CNAME *.holifes.com apuntando a la infraestructura de despliegue (ej. cname.vercel-dns.com si se utiliza Vercel). Esto asegura que cualquier subdominio inventado por un usuario (ej. boda-juan-y-ana.holifes.com) resuelva inmediatamente a la dirección IP de la aplicación sin necesidad de provisionar nuevos registros DNS manualmente.6
+* Gestión de SSL: La seguridad es un requisito no funcional crítico, especialmente cuando se procesan pagos. La plataforma de hosting debe soportar la emisión automática de certificados SSL para dominios comodín o la generación bajo demanda de certificados para subdominios específicos. Vercel, por ejemplo, maneja esto automáticamente para los dominios añadidos a su panel, pero para una arquitectura escalable, se debe verificar que la terminación SSL ocurra antes de llegar al middleware.8
+
+
+1.3 Estrategias de Aislamiento de Datos y Rendimiento
+
+
+El riesgo principal en arquitecturas multi-tenant es la fuga de datos (Data Leakage)—que un evento acceda a la configuración o datos de otro. Dado que el middleware inyecta el subdomain como parámetro, todas las consultas a la base de datos subsiguientes deben utilizar estrictamente este parámetro como filtro (WHERE subdomain =?).
+Para optimizar el rendimiento y evitar que la base de datos sea golpeada con consultas de validación de subdominios en cada visita (lo que podría causar ataques de denegación de servicio o costos elevados), se debe implementar una capa de almacenamiento en caché de alta velocidad, como Redis.
+Tabla 1: Comparación de Estrategias de Validación de Tenant
+
+
+Estrategia
+	Latencia
+	Carga en DB
+	Consistencia
+	Recomendación
+	Consulta Directa SQL
+	Alta (100-300ms)
+	Crítica en picos de tráfico
+	Inmediata
+	No recomendado para producción
+	Edge Config / JSON estático
+	Muy Baja (<50ms)
+	Nula
+	Eventual (retraso en propagación)
+	Ideal para listas blancas de dominios
+	Redis (Key-Value Store)
+	Baja (50-100ms)
+	Baja (solo en "cache miss")
+	Alta (invalidación inmediata)
+	Estándar de la industria 1
+	La implementación recomendada utiliza Redis para mapear subdomain -> event_id. Si el subdominio no existe en Redis, se consulta la DB, se guarda en Redis y se procede. Esto reduce drásticamente el tiempo hasta el primer byte (TTFB), un factor crucial para el SEO y la experiencia del usuario.1
+________________
+
+
+2. Ingeniería del Editor Visual (Page Builder) y Gestión de Contenido
+
+
+El requisito de "páginas totalmente editables", donde el usuario pueda "escoger plantillas", "editar imágenes" y tener conexión con la "tabla de ese evento", descarta el uso de formularios simples. Se requiere integrar un constructor de páginas visual (WYSIWYG) dentro de la aplicación Next.js. Tras evaluar el ecosistema de React, la solución técnica óptima para 2025 es Puck, superando a alternativas como GrapesJS o Craft.js por su arquitectura moderna y compatibilidad con React Server Components (RSC).
+
+
+2.1 Selección Tecnológica: Puck vs. Alternativas
+
+
+El análisis de las herramientas disponibles 10 revela diferencias arquitectónicas fundamentales:
+* GrapesJS: Aunque muy popular, su arquitectura se basa en la manipulación directa del DOM y HTML strings. Esto dificulta la integración profunda con la lógica de React y el estado de la aplicación (como los datos de entradas disponibles en tiempo real). Además, su peso y complejidad pueden afectar el rendimiento de carga.12
+* Craft.js: Ofrece una gran flexibilidad en React, pero requiere que el desarrollador construya todo el motor de renderizado y la interfaz de usuario desde cero, lo que aumenta significativamente el tiempo de desarrollo y la deuda técnica potencial.13
+* Puck: Es un editor visual "nativo de datos". No guarda HTML, sino una estructura JSON limpia que representa el árbol de componentes y sus propiedades (props). Esto permite renderizar el contenido en el servidor (SSR) de manera eficiente, lo cual es indispensable para el SEO.15 Además, Puck se integra de forma transparente con los componentes de diseño existentes (como Tailwind CSS o librerías de UI), permitiendo mantener la consistencia de marca.16
+
+
+2.2 Arquitectura de Componentes Híbridos (Static Shell + Dynamic Data)
+
+
+El mayor desafío técnico es conectar el diseño visual con los datos vivos de la base de datos (precios, stock de entradas, fechas) sin obligar al usuario a introducir estos datos manualmente en el editor, lo que sería propenso a errores.
+La solución propuesta es el patrón de Componentes Inteligentes con Inyección de Datos (Data Injection).
+
+
+2.2.1 Definición de Componentes en Puck (puck.config.tsx)
+
+
+En lugar de ofrecer solo bloques genéricos como "Texto" o "Imagen", se deben desarrollar componentes semánticos específicos para eventos:
+* EventHeader: Muestra título, fecha y lugar.
+* TicketWidget: Lista de precios y botón de compra.
+* SpeakerGrid: Parrilla de conferencistas.
+En la configuración de Puck, estos componentes exponen campos de diseño (color de fondo, alineación, relleno), pero no exponen campos para los datos críticos (precio del ticket).
+
+
+2.2.2 Resolución de Datos en Tiempo de Ejecución
+
+
+Puck permite una función resolveData o el paso de datos externos al renderizador. En el momento en que se renderiza la página pública (app/[site]/page.tsx):
+1. Next.js recupera el registro del evento y sus tickets desde la base de datos PostgreSQL.
+2. El componente <Render> de Puck recibe estos datos como contexto o props globales.
+3. Cuando el componente TicketWidget se renderiza, ignora cualquier dato falso que pudiera haber en el editor y lee directamente del objeto de base de datos inyectado. Esto garantiza que si el organizador cambia el precio en el panel administrativo, la página pública se actualiza automáticamente sin necesidad de editar el diseño visual.15
+
+
+2.3 Sistema de Plantillas y Gestión de Estado
+
+
+Para cumplir con el requisito de "escoger plantillas", se debe implementar un sistema de Clonación de Esquemas JSON.
+1. Creación de Plantillas Maestras: Los administradores de la plataforma crean diseños de alta calidad (ej. "Concierto Rock", "Seminario Corporativo") utilizando el mismo editor Puck. Estos diseños se guardan en una tabla templates con su JSON correspondiente.
+2. Instanciación: Cuando un usuario crea un evento y selecciona "Seminario Corporativo", el backend copia el JSON de la tabla templates y lo inserta en la columna layout_data del nuevo evento en la tabla events.
+3. Independencia: A partir de ese momento, el usuario edita su propia copia del JSON. Los cambios en la plantilla maestra no afectan a los eventos ya creados, preservando la integridad histórica.15
+
+
+2.4 Implementación de Carga de Imágenes (Custom Fields)
+
+
+Puck no incluye un cargador de archivos por defecto, por lo que se debe implementar un Campo Personalizado (Custom Field) para la gestión de imágenes.
+* Interfaz: Se extiende la interfaz de campos de Puck para incluir un tipo image-upload.
+* Lógica de Cliente: Este campo renderiza un input type="file". Al seleccionar un archivo, se sube asíncronamente a un servicio de almacenamiento de objetos (AWS S3, Cloudflare R2 o Vercel Blob).
+* Persistencia: El servicio de almacenamiento devuelve una URL pública (CDN). Esta URL es la que se guarda en el JSON de Puck ({ type: 'Hero', props: { backgroundImage: 'https://cdn.holifes.com/img123.jpg' } }).
+* Optimización: Es crucial que este proceso incluya pasos de optimización (conversión a WebP/AVIF, redimensionamiento) antes de guardar la URL final para asegurar tiempos de carga rápidos y buenas puntuaciones en Core Web Vitals.20
+________________
+
+
+3. Diseño del Modelo de Datos Híbrido en PostgreSQL
+
+
+La naturaleza dual de la aplicación (datos transaccionales estrictos para pagos vs. datos flexibles de diseño para el editor) sugiere el uso de PostgreSQL como motor de base de datos único, aprovechando su capacidad para manejar datos relacionales y documentos JSONB de alto rendimiento simultáneamente.
+
+
+3.1 Esquema Relacional para Integridad Transaccional
+
+
+Los datos críticos deben residir en tablas normalizadas para asegurar la integridad referencial (Foreign Keys) y la consistencia ACID.
+* users: Almacena credenciales, y crucialmente, el stripe_account_id para los pagos de Stripe Connect.
+* events:
+   * id: UUID (Primary Key).
+   * subdomain: VARCHAR (Unique, Indexado). Esencial para la búsqueda rápida en el middleware.
+   * organizer_id: FK a users.
+   * title, start_date, end_date: Datos estructurados necesarios para filtrado y búsquedas.
+   * status: ENUM ('draft', 'published', 'archived').
+* tickets: Definición de inventario y precios.
+* orders: Registro inmutable de transacciones, vinculado a stripe_payment_intent_id.
+
+
+3.2 Almacenamiento JSONB para Flexibilidad del Editor
+
+
+Intentar modelar la estructura de una página web dinámica con tablas relacionales (patrón Entity-Attribute-Value o múltiples tablas de componentes) es un antipatrón conocido que conduce a consultas lentas y complejas de mantener.23
+La solución robusta es utilizar una columna layout_data de tipo JSONB dentro de la tabla events (o una tabla auxiliar event_layouts si el JSON es muy grande).
+* JSONB vs JSON: PostgreSQL JSONB almacena los datos en formato binario descompuesto, lo que permite indexación y consultas eficientes, a diferencia del tipo JSON plano que es solo texto. Esto es vital si en el futuro se desea buscar "todos los eventos que usan el componente de Video".24
+* Validación de Esquema (Zod): Aunque la base de datos sea flexible, la aplicación no debe serlo. Se debe utilizar Zod en el backend para validar que el JSONB guardado por Puck cumpla con la estructura esperada antes de persistirlo. Esto previene que un error en el editor visual corrompa la página pública del evento, asegurando que siempre haya una estructura renderizable.26
+Ejemplo de Estructura JSONB:
+
+
+JSON
+
+
+
+
+{
+ "content":,
+ "root": {
+   "props": {
+     "fontFamily": "Inter"
+   }
+ }
+}
+
+________________
+
+
+4. Infraestructura de Pagos y Monetización con Stripe Connect
+
+
+Para una plataforma que aloja eventos de terceros, gestionar los pagos implica complejidades legales y financieras significativas: dividir los ingresos entre la plataforma y el organizador, manejar reembolsos y cumplir con las normativas KYC (Know Your Customer). Stripe Connect es la solución estándar de la industria para estos casos.
+
+
+4.1 Selección del Modelo: Express vs. Standard
+
+
+La elección del tipo de cuenta de Stripe define la experiencia del usuario y el modelo de negocio.27
+Tabla 2: Análisis Comparativo de Modelos Stripe Connect
+
+
+Característica
+	Stripe Standard
+	Stripe Express
+	Recomendación para "Holifes"
+	Experiencia de Usuario
+	El usuario sale de su app para gestionar pagos en el dashboard de Stripe.
+	Dashboard integrado en su app (White-label).
+	Express (Mayor profesionalismo)
+	Control de Marca
+	Bajo (Marca Stripe visible).
+	Alto (Marca de la plataforma).
+	Express
+	Responsabilidad (Fraude)
+	El usuario final es responsable directo.
+	La plataforma comparte responsabilidad.
+	Express requiere mejor gestión de riesgo
+	Costo para la Plataforma
+	$0 / mes.
+	~$2 USD por cuenta activa / mes + 0.25% por payout.29
+	Express (Costo absorbible por la comisión)
+	Onboarding
+	Flujo OAuth de Stripe.
+	Formulario simplificado gestionado por Stripe pero con look & feel propio.
+	Express
+	Para cumplir con el requisito de ser "lo más robusto y profesional", Stripe Express es la opción superior. Permite que el organizador del evento vea sus ganancias y gestione sus datos bancarios dentro de la plataforma Holifes, reforzando la percepción de valor de su software.
+
+
+4.2 Flujo de Integración y Onboarding
+
+
+1. Onboarding: Antes de que un usuario pueda publicar un evento pagado, debe completar el onboarding. Se utiliza la API /v1/account_links de Stripe para generar un enlace temporal que lleva al usuario a un formulario alojado por Stripe (pero con el logo de Holifes) para introducir sus datos fiscales y bancarios. Es crítico capturar el evento account.updated vía Webhook para actualizar el estado del usuario en la DB local (payments_enabled: true).31
+2. Checkout Session y Application Fee: Cuando un asistente compra una entrada, se crea una sesión de Checkout.
+   * Se debe especificar payment_intent_data[application_fee_amount]. Esto separa automáticamente su comisión (ej. 10%) del total, transfiriendo el resto a la cuenta conectada del organizador (transfer_data[destination]). Esto simplifica enormemente la contabilidad y evita que los fondos totales toquen su cuenta bancaria, reduciendo la carga fiscal.33
+
+
+4.3 Arquitectura Basada en Eventos (Webhooks)
+
+
+Para garantizar que la base de datos de "Entradas Vendidas" coincida exactamente con el dinero recibido, no se debe confiar en la redirección del usuario a una página de "Gracias". La conexión a Internet podría fallar justo después del pago.
+* Robustez: Se debe implementar un endpoint /api/webhooks/stripe que escuche eventos checkout.session.completed.
+* Idempotencia: Este endpoint debe verificar si el ID del evento ya fue procesado para evitar duplicar entradas o enviar correos dobles.
+* Seguridad: Validar la firma criptográfica del webhook (stripe.webhooks.constructEvent) es obligatorio para asegurar que la solicitud viene realmente de Stripe y no de un atacante simulando un pago.35
+________________
+
+
+5. Estrategias Avanzadas de SEO Programático
+
+
+El uso de subdominios presenta desafíos específicos para el SEO, ya que Google trata técnicamente cada subdominio como un sitio separado. Para asegurar que los eventos "aparezcan rápidamente en los resultados", se requiere una estrategia de SEO programático agresiva y bien estructurada.
+
+
+5.1 Generación de Metadatos Dinámicos (Open Graph)
+
+
+Cada evento debe tener títulos, descripciones e imágenes de vista previa optimizados para compartir en redes sociales. En Next.js App Router, esto se maneja exportando la función generateMetadata en page.tsx.
+* Esta función recibe el parámetro site (subdominio).
+* Consulta la DB para obtener los detalles del evento.
+* Retorna un objeto Metadata que incluye openGraph y twitter tags.
+* Importante: La imagen de Open Graph (og:image) debe generarse dinámicamente usando @vercel/og (Image Response) para superponer el título del evento y la fecha sobre una plantilla gráfica, aumentando significativamente el CTR (Click-Through Rate) en redes sociales.38
+
+
+5.2 Sitemaps y Robots.txt por Subdominio
+
+
+Un archivo sitemap.xml único en el dominio raíz no es suficiente ni correcto para indexar contenido en subdominios. Cada subdominio debe servir su propio sitemap.
+* Implementación: Se crea una ruta especial app/sitemap.ts o una ruta API que detecta el host.
+* Lógica: Si la solicitud viene de conciertodeverano.holifes.com/sitemap.xml, el sistema genera un XML que lista solo las páginas internas de ese evento (Inicio, Agenda, Speakers, FAQ).
+* Robots.txt Dinámico: De igual forma, el robots.txt debe ser dinámico. Esto permite a los organizadores configurar eventos como "Privados" (no indexables) desde su panel de control, lo que se refleja instantáneamente añadiendo Disallow: / en el archivo robots servido desde su subdominio.38
+
+
+5.3 Renderizado Incremental y Velocidad (Core Web Vitals)
+
+
+Google penaliza los sitios lentos. Dado que las páginas de eventos son mayoritariamente estáticas (la información no cambia cada segundo), se debe utilizar Incremental Static Regeneration (ISR).
+* En page.tsx, exportar export const revalidate = 60;.
+* Esto indica a Next.js que genere HTML estático de la página y lo almacene en el Edge Cache. Las visitas subsiguientes reciben el HTML instantáneamente (TTFB < 50ms). Si los datos cambian, la página se regenera en segundo plano después de 60 segundos. Esto combina la velocidad de un sitio estático con el dinamismo de una base de datos.41
+________________
+
+
+6. Integración y Despliegue Continuo (CI/CD)
+
+
+Para cerrar el ciclo de "robustez", el entorno de despliegue debe soportar estas características avanzadas. Vercel es la plataforma nativa recomendada, pero se puede lograr en AWS con configuraciones más complejas (CloudFront + Lambda@Edge).
+
+
+6.1 Gestión de Errores y "Self-Healing"
+
+
+En una arquitectura donde el usuario define el diseño, los errores son probables (ej. un componente intenta renderizar una imagen que fue borrada).
+* Error Boundaries: Cada componente dinámico de Puck debe estar envuelto en un ErrorBoundary de React. Si un widget falla, solo ese widget debe mostrar un mensaje de error o desaparecer, sin romper toda la página del evento.
+* Logging: Integrar herramientas como Sentry o LogRocket para capturar errores de renderizado en el cliente vinculados al ID del evento y la versión del despliegue.
+
+
+6.2 Estrategia de Local Development
+
+
+El desarrollo local de subdominios es el punto de fricción más común. La configuración robusta implica:
+1. Modificar /etc/hosts para apuntar evento1.localhost a 127.0.0.1.
+2. Configurar el middleware de Next.js para detectar localhost:3000 y tratar el primer segmento del host como subdominio.
+3. Esto permite a los desarrolladores probar la experiencia completa de multi-tenancy, incluyendo la persistencia de cookies de sesión a través de subdominios (configurando el dominio de la cookie como .localhost o .holifes.com), sin necesidad de desplegar en la nube.4
+
+
+Conclusión
+
+
+La arquitectura propuesta integra lo mejor del ecosistema React moderno: Next.js Middleware para la tenencia múltiple escalable, Puck para una edición visual rica y estructurada, PostgreSQL/JSONB para un modelo de datos híbrido eficiente, y Stripe Connect Express para una monetización profesional. Al adherirse a estos patrones, la plataforma no solo cumplirá con los requisitos funcionales inmediatos, sino que estará preparada para escalar a miles de eventos simultáneos, manteniendo un rendimiento de SEO de clase mundial y una experiencia de usuario robusta y segura.
+Fuentes citadas
+1. Platforms Starter Kit - Next.js Multi-Tenant Example - Vercel, acceso: noviembre 24, 2025, https://vercel.com/templates/next.js/platforms-starter-kit
+2. Guides: Multi-tenant - Next.js, acceso: noviembre 24, 2025, https://nextjs.org/docs/app/guides/multi-tenant
+3. How to Rewrite Subdomains to a Specific Path in Next.js Middleware? : r/nextjs - Reddit, acceso: noviembre 24, 2025, https://www.reddit.com/r/nextjs/comments/1j3lnn8/how_to_rewrite_subdomains_to_a_specific_path_in/
+4. Multi-tenant Applications - Setting up Custom Domains on Localhost with Nextjs, acceso: noviembre 24, 2025, https://www.acceleratebs.com/blog/multi-tenant-applications-setting-up-custom-domains-on-localhost-with-nextjs
+5. Subdomain-Based Routing in Next.js: A Complete Guide for Multi-Tenant Applications, acceso: noviembre 24, 2025, https://medium.com/@sheharyarishfaq/subdomain-based-routing-in-next-js-a-complete-guide-for-multi-tenant-applications-1576244e799a
+6. Working with domains - Vercel, acceso: noviembre 24, 2025, https://vercel.com/docs/domains/working-with-domains
+7. Domain management for multi-tenant - Vercel, acceso: noviembre 24, 2025, https://vercel.com/docs/multi-tenant/domain-management
+8. How do you set up a multi-tenant Next.js app with dynamic subdomains, and what pitfalls should I avoid? : r/nextjs - Reddit, acceso: noviembre 24, 2025, https://www.reddit.com/r/nextjs/comments/1fq70vk/how_do_you_set_up_a_multitenant_nextjs_app_with/
+9. Vercel for Platforms, acceso: noviembre 24, 2025, https://vercel.com/docs/multi-tenant
+10. 14 Best React UI Component Libraries in 2025 (+ Alternatives to MUI & Shadcn) - Untitled UI, acceso: noviembre 24, 2025, https://www.untitledui.com/blog/react-component-libraries
+11. Top 5 Page Builders for React in 2025 - DEV Community, acceso: noviembre 24, 2025, https://dev.to/fede_bonel_tozzi/top-5-page-builders-for-react-190g
+12. Top 5 GrapesJS Alternatives in 2025 With Comparison Guide - Unlayer, acceso: noviembre 24, 2025, https://unlayer.com/blog/grapesjs-alternative-top-options
+13. Reasons Why Craft.js Is the Best Alternative to GrapesJS - DhiWise, acceso: noviembre 24, 2025, https://www.dhiwise.com/post/reasons-why-craft-js-is-the-best-alternative-to-grapesjs
+14. React-Page vs GrapeJS vs CraftJS? Anyone tried these or anything else and could recommend? : r/webdev - Reddit, acceso: noviembre 24, 2025, https://www.reddit.com/r/webdev/comments/14q8mn8/reactpage_vs_grapejs_vs_craftjs_anyone_tried/
+15. puckeditor/puck: The visual editor for React - GitHub, acceso: noviembre 24, 2025, https://github.com/puckeditor/puck
+16. How to Build a React Page Builder: Puck and Tailwind v4.0 - DEV Community, acceso: noviembre 24, 2025, https://dev.to/puckeditor/how-to-build-a-react-page-builder-puck-and-tailwind-v40-5e3o
+17. How to Build a React Page Builder: Puck and Tailwind v4, acceso: noviembre 24, 2025, https://puckeditor.com/blog/how-to-build-a-react-page-builder-puck-and-tailwind-4
+18. Props - Puck Editor, acceso: noviembre 24, 2025, https://puckeditor.com/docs/api-reference/components/puck
+19. React Server Components - Puck Editor, acceso: noviembre 24, 2025, https://puckeditor.com/docs/integrating-puck/server-components
+20. Editing: / - Puck Example, acceso: noviembre 24, 2025, https://demo.puckeditor.com/edit
+21. Custom - Puck Editor, acceso: noviembre 24, 2025, https://puckeditor.com/docs/api-reference/fields/custom
+22. Custom Fields - Puck Editor, acceso: noviembre 24, 2025, https://puckeditor.com/docs/extending-puck/custom-fields
+23. Dynamic Database Schema - sql - Stack Overflow, acceso: noviembre 24, 2025, https://stackoverflow.com/questions/66385/dynamic-database-schema
+24. Documentation: 18: 8.14. JSON Types - PostgreSQL, acceso: noviembre 24, 2025, https://www.postgresql.org/docs/current/datatype-json.html
+25. PostgreSQL as a JSON database: Advanced patterns and best practices - AWS, acceso: noviembre 24, 2025, https://aws.amazon.com/blogs/database/postgresql-as-a-json-database-advanced-patterns-and-best-practices/
+26. Using PostgreSQL for JSON Storage | Crunchy Data Blog, acceso: noviembre 24, 2025, https://www.crunchydata.com/blog/using-postgresql-for-json-storage
+27. Stripe Express vs Stripe Connect: Which One to Choose for Your Multivendor Marketplace, acceso: noviembre 24, 2025, https://wedevs.com/blog/440090/dokan-stripe-express-vs-stripe-connect/
+28. Connect account types | Stripe Documentation, acceso: noviembre 24, 2025, https://docs.stripe.com/connect/accounts
+29. Comparing Stripe Connect modes Standard vs Express vs Custom - Nimblechapps, acceso: noviembre 24, 2025, https://www.nimblechapps.com/blog/comparing-stripe-connect-standard-vs-express-vs-custom
+30. Pricing information | Stripe Connect, acceso: noviembre 24, 2025, https://stripe.com/connect/pricing
+31. Using Connect with Express connected accounts - Stripe Documentation, acceso: noviembre 24, 2025, https://docs.stripe.com/connect/express-accounts
+32. Guide for Stripe connect express integration in applications. - Nimblechapps, acceso: noviembre 24, 2025, https://www.nimblechapps.com/blog/stripe-integration-in-reactjs-application-stripe-connect-express-integration
+33. Stripe Checkout with Next.js: Complete Integration Guide - MTechZilla, acceso: noviembre 24, 2025, https://www.mtechzilla.com/blogs/integrate-stripe-checkout-with-nextjs
+34. Getting started with Stripe Connect using Next.js - LogRocket Blog, acceso: noviembre 24, 2025, https://blog.logrocket.com/getting-started-stripe-connect-next-js/
+35. Seamlessly connect Stripe events to your frontend - YouTube, acceso: noviembre 24, 2025, https://www.youtube.com/watch?v=YTeug7JjMoc
+36. Seamlessly connect Stripe events to your frontend | Stripe Dot Dev Blog, acceso: noviembre 24, 2025, https://stripe.dev/blog/seamlessly-connect-stripe-events-to-your-frontend
+37. Getting started with Next.js, TypeScript, and Stripe Checkout - Vercel, acceso: noviembre 24, 2025, https://vercel.com/guides/getting-started-with-nextjs-typescript-stripe
+38. How to generate a dynamic sitemap in Payload with Next.js, acceso: noviembre 24, 2025, https://payloadcms.com/posts/guides/how-to-build-an-seo-friendly-sitemap-in-payload--nextjs
+39. Generating dynamic robots.txt and sitemap.xml in a Next.js App Router with TypeScript, acceso: noviembre 24, 2025, https://dev.to/arfatapp/generating-dynamic-robotstxt-and-sitemapxml-in-a-nextjs-app-router-with-typescript-35l9
+40. robots.txt - Metadata Files - Next.js, acceso: noviembre 24, 2025, https://nextjs.org/docs/app/api-reference/file-conventions/metadata/robots
+41. How to implement SaaS multi-tenancy with Next.js？ : r/nextjs - Reddit, acceso: noviembre 24, 2025, https://www.reddit.com/r/nextjs/comments/1p5ad7v/how_to_implement_saas_multitenancy_with_nextjs/
+42. SEO: XML Sitemaps - Next.js, acceso: noviembre 24, 2025, https://nextjs.org/learn/seo/xml-sitemaps
+43. Multi-tenant (white-label app) design with subdomains - Kinde - Answer Overflow, acceso: noviembre 24, 2025, https://www.answeroverflow.com/m/1364043157880307754
+44. How to assign Subdomain for every user in Next Js - Stack Overflow, acceso: noviembre 24, 2025, https://stackoverflow.com/questions/69299188/how-to-assign-subdomain-for-every-user-in-next-js

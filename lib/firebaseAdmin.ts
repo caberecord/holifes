@@ -10,6 +10,11 @@ if (!admin.apps.length) {
         credential: admin.credential.cert(serviceAccount),
         databaseURL: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseio.com`,
     });
+
+    // Configuración crítica para evitar errores con propiedades undefined en Puck
+    admin.firestore().settings({
+        ignoreUndefinedProperties: true,
+    });
 }
 
 export const adminAuth = admin.auth();

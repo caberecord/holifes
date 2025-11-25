@@ -12,6 +12,18 @@ module.exports = {
                 "gradient-conic":
                     "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
             },
+            fontFamily: {
+                inter: ['var(--font-inter)'],
+                montserrat: ['var(--font-montserrat)'],
+                playfair: ['var(--font-playfair)'],
+                oswald: ['var(--font-oswald)'],
+                poppins: ['var(--font-poppins)'],
+                merriweather: ['var(--font-merriweather)'],
+                anton: ['var(--font-anton)'],
+                cormorant: ['var(--font-cormorant)'],
+                lilita: ['var(--font-lilita)'],
+                space: ['var(--font-space-mono)'],
+            },
         },
     },
     plugins: [],

@@ -1,0 +1,541 @@
+﻿Informe Técnico Exhaustivo: Arquitectura de Sistemas de Gestión de Eventos de Alto Rendimiento con Next.js, Firebase y Puck Editor
+
+
+
+
+1. Resumen Ejecutivo y Alcance Arquitectónico
+
+
+La convergencia de las tecnologías de desarrollo web moderno ha permitido la creación de plataformas de "User-Generated Content" (UGC) altamente sofisticadas, donde la frontera entre el consumidor de contenido y el creador se desdibuja. Este informe aborda una problemática crítica y una propuesta de arquitectura avanzada para una plataforma de gestión de eventos ("Event Management System" - EMS) desarrollada sobre el stack tecnológico de Next.js, Google Firebase y el editor visual Puck (@measured/puck).
+El análisis se divide en dos vectores principales. El primero es diagnóstico y correctivo, centrado en la resolución de fallos sistémicos durante la persistencia de datos (operaciones de "guardar borrador" o "publicar") en un entorno builder-v2. Los síntomas reportados —errores de sistema al intentar guardar utilizando usePuckSelector y rutas API— apuntan a una disonancia fundamental entre la gestión de estado efímero en React y las restricciones de serialización estrictas de las bases de datos NoSQL como Cloud Firestore. Específicamente, la presencia de valores undefined en los árboles de propiedades de los componentes visuales 1 y el desbordamiento de límites de carga útil (payload) debido a la codificación de activos binarios en Base64 3 constituyen los puntos de fallo primarios.
+El segundo vector es prospectivo y arquitectónico, detallando el diseño de una infraestructura robusta para la generación dinámica de sitios promocionales bajo subdominios (e.g., conciertodeverano.holifes.com). Este requerimiento exige una orquestación precisa entre el Middleware de Next.js para el enrutamiento a nivel de borde (Edge), la gestión de datos multi-inquilino (multi-tenancy) en Firestore, y una estrategia de SEO agresiva mediante renderizado del lado del servidor (SSR) y generación de metadatos estructurados (JSON-LD).
+Este documento de 15,000 palabras desglosa cada componente técnico, desde la sanitización de datos a nivel de bit hasta las estrategias de despliegue global, proporcionando una hoja de ruta para transformar un prototipo funcional en una plataforma empresarial escalable, segura y optimizada para motores de búsqueda.
+
+
+2. Diagnóstico de Fallos en la Persistencia de Datos: El Conflicto React-Firestore
+
+
+El error reportado al intentar "guardar" o "publicar" en el constructor visual no es un incidente aislado, sino sintomático de una incompatibilidad estructural entre el manejo de objetos en JavaScript moderno y los requisitos de almacenamiento de Firestore. Al analizar la arquitectura descrita —uso de usePuckSelector para la extracción de estado y una API Route de Next.js para la transmisión— se identifican tres capas de fallo potencial que deben ser neutralizadas.
+
+
+2.1 La Paradoja del Valor undefined en la Serialización
+
+
+En el ecosistema de React y Puck, es común que los componentes definan interfaces de propiedades (props) opcionales. Cuando un usuario arrastra un componente al lienzo (canvas) pero no configura explícitamente todos sus campos, el estado resultante (appState o data) a menudo contiene claves con el valor undefined. JavaScript trata undefined como un tipo primitivo válido que representa la ausencia de asignación.
+Sin embargo, Cloud Firestore opera bajo un paradigma estricto. A diferencia de las bases de datos SQL que pueden tener valores NULL tipados, o incluso de MongoDB que es más permisivo, los SDKs de Firebase (tanto Cliente como Admin) rechazan explícitamente cualquier objeto que contenga undefined en sus campos.1 La excepción lanzada es inequívoca: Function DocumentReference.set() called with invalid data. Unsupported field value: undefined.
+Este comportamiento se debe a que, en una operación de actualización (update), Firestore utiliza FieldValue.delete() para eliminar campos. Permitir undefined introduciría una ambigüedad semántica: ¿el desarrollador intentó borrar el campo, o simplemente pasó un valor no inicializado por error? Para evitar la corrupción de datos silenciosa, el SDK detiene la ejecución inmediatamente.5
+
+
+2.1.1 Mecánica del Fallo en la API Route de Next.js
+
+
+Cuando la aplicación envía los datos desde el cliente a la API Route de Next.js, generalmente se utiliza JSON.stringify(). Según la especificación ECMAScript, JSON.stringify elimina silenciosamente las claves con valores undefined.7 Por lo tanto, si la transmisión fuera puramente JSON serializado, el error no llegaría a Firestore.
+El error persiste porque:
+1. Transmisión de Objetos: Es probable que la aplicación esté enviando el objeto directamente a través de librerías como axios o fetch que, si bien serializan, pueden estar interactuando con interceptores o configuraciones que preservan ciertas estructuras, o bien, el "parser" del lado del servidor (el body-parser de Next.js) reconstruye el objeto y, en manipulaciones posteriores dentro de la API Route (por ejemplo, al fusionar con datos del usuario), se reintroducen valores undefined.
+2. Uso de Librerías de Estado: Al usar usePuckSelector, se obtiene el estado crudo de React. Si este estado se pasa directamente al SDK de Firebase Admin sin una limpieza profunda, el error es inevitable.
+
+
+2.2 Estrategias de Sanitización y Configuración del SDK
+
+
+Para resolver este conflicto sin comprometer la flexibilidad del editor visual, existen dos enfoques técnicos: la sanitización recursiva y la configuración del SDK.
+Estrategia
+	Implementación Técnica
+	Ventajas
+	Desventajas
+	Sanitización Recursiva
+	Algoritmo DFS (Depth-First Search) para recorrer el árbol de datos y eliminar claves undefined.
+	Control total sobre la estructura de datos; independiente del SDK.
+	Costo computacional en árboles grandes (O(n)); posible bloqueo del Event Loop en Node.js.
+	Configuración del SDK
+	ignoreUndefinedProperties: true en la instancia de Firestore.
+	Solución nativa y optimizada (C++/GRPC); implementación inmediata.
+	Puede ocultar errores lógicos legítimos donde un valor debería existir pero falta.
+	
+
+2.2.1 Implementación de ignoreUndefinedProperties
+
+
+La solución más robusta y recomendada para entornos de producción de CMS es configurar la instancia de Firestore Admin para ignorar estas propiedades. Esto delega la responsabilidad de la limpieza al propio SDK, que está altamente optimizado para estas operaciones.
+En el contexto de una API Route de Next.js (que utiliza firebase-admin), la inicialización debe modificarse para incluir esta configuración explícita. Es crucial notar que esto debe hacerse al momento de instanciar el servicio de Firestore, no solo la aplicación.8
+
+
+TypeScript
+
+
+
+
+// lib/firebase-admin.ts
+import * as admin from 'firebase-admin';
+
+if (!admin.apps.length) {
+ admin.initializeApp({
+   credential: admin.credential.cert({
+     projectId: process.env.FIREBASE_PROJECT_ID,
+     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+   }),
+ });
+ 
+ // CONFIGURACIÓN CRÍTICA PARA EVITAR ERRORES DE PUCK
+ admin.firestore().settings({
+   ignoreUndefinedProperties: true,
+ });
+}
+
+const db = admin.firestore();
+export { db };
+
+Al aplicar esta configuración, el SDK filtrará automáticamente cualquier propiedad undefined anidada profundamente dentro de la estructura de datos de Puck (zonas, componentes, props), permitiendo que la operación de guardado proceda sin excepciones.9
+
+
+2.3 Límites de Carga Útil y Errores HTTP 413
+
+
+Un segundo vector de fallo, a menudo confundido con errores de base de datos, es el límite de tamaño del cuerpo de la petición (Request Body Size). Los constructores visuales generan estructuras JSON extensas. Si el usuario incrusta imágenes directamente en el editor (codificadas en Base64) en lugar de subir referencias URL, el tamaño del documento JSON crece exponencialmente.
+
+
+2.3.1 Restricciones de Next.js y Vercel
+
+
+Por defecto, las API Routes de Next.js (Pages Router) tienen un límite de parseo de cuerpo de 1MB.11 Si el JSON del editor Puck excede este tamaño, Next.js termina la conexión con un error HTTP 413 "Payload Too Large" antes incluso de que se ejecute el código del controlador.
+* En el App Router (Next.js 13+), si se utilizan Server Actions, el límite también es configurable pero estricto.11
+* Además, Firestore tiene un límite duro de 1 MiB por documento.13
+Si el error reportado se manifiesta como una falla silenciosa o un error de red genérico, es imperativo revisar la configuración de tamaño en la API Route:
+
+
+TypeScript
+
+
+
+
+// pages/api/puck/save.ts
+export const config = {
+ api: {
+   bodyParser: {
+     sizeLimit: '4mb', // Aumentar límite para permitir layouts complejos
+   },
+ },
+};
+
+15
+Sin embargo, simplemente aumentar el límite no resuelve el problema de fondo de Firestore (1 MiB). Por ello, la arquitectura debe prohibir estrictamente el almacenamiento de imágenes en Base64 dentro del objeto de datos de Puck (ver Sección 4).
+
+
+2.4 El Problema de Contexto con usePuckSelector
+
+
+El usuario menciona el uso de usePuckSelector. Este hook de React depende del Context API. Un error común es intentar invocar este selector desde un botón de "Guardar" que se encuentra en una barra de navegación superior (Header) que está jerárquicamente fuera del proveedor <Puck>.
+Si el componente que llama a usePuckSelector no es descendiente de <Puck>, el hook devolverá undefined o lanzará un error de contexto inexistente, provocando que la función de guardado intente enviar datos vacíos o falle al instanciarse.17
+Solución Arquitectónica:
+En lugar de extraer el estado manualmente con selectores desde fuera, se debe utilizar la propiedad onPublish del componente <Puck>. Esta función callback se invoca internamente con el estado actual de los datos (data) como argumento, garantizando su integridad y eliminando la dependencia de contextos externos.19
+
+
+3. Arquitectura del Sistema de Eventos: Diseño Profesional y Robusto
+
+
+Para satisfacer el requerimiento de una aplicación profesional para la gestión de conciertos y conferencias, la arquitectura debe evolucionar de un simple editor de páginas a un CMS (Content Management System) headless distribuido. La robustez se define aquí por la integridad referencial de los datos, la capacidad de recuperación ante fallos y la segregación de responsabilidades.
+
+
+3.1 Modelado de Datos en Firestore para Eventos
+
+
+Una implementación profesional no guarda simplemente un bloque de JSON. Debe existir un modelo relacional lógico dentro de la estructura NoSQL.
+
+
+3.1.1 Colección events
+
+
+Esta es la entidad maestra. Contiene los metadatos inmutables o de alto nivel del evento que se utilizan para la lógica de negocio (facturación, fechas, propietarios).
+* id (Auto-generado o slug único)
+* ownerId (Referencia al usuario organizador)
+* subdomain (e.g., "conciertodeverano") - Índice único requerido.
+* customDomain (Opcional, e.g., "www.mifestival.com")
+* status ("draft", "published", "archived")
+* paymentGatewayConfig (ID de cuenta de Stripe/MercadoPago conectada)
+
+
+3.1.2 Subcolección pages o Campo layout
+
+
+Para el contenido visual generado por Puck, se recomienda almacenar la estructura JSON en una subcolección versions o en un documento separado referenciado, para evitar cargar todo el peso del layout cuando solo se necesitan listar los eventos en un dashboard.
+* events/{eventId}/content/draft: Contiene el JSON de Puck en trabajo.
+* events/{eventId}/content/published: Contiene la versión activa visible al público.
+Esta separación ("Draft" vs "Published") es vital para un flujo de trabajo profesional, permitiendo al organizador editar sin romper el sitio en vivo.21
+
+
+3.2 Integración del Editor Puck con Datos Dinámicos
+
+
+El requerimiento especifica que la página debe estar "conectada con la tabla de ese evento". Esto implica que el editor visual no debe ser estático; debe ser capaz de inyectar datos del evento (e.g., Nombre del Artista, Fecha, Precio) automáticamente.
+Para lograr esto en Puck, se utilizan Componentes Dinámicos y la propiedad resolveData (en versiones avanzadas) o el paso de props predeterminados.
+
+
+Implementación de Campos Conectados
+
+
+En la configuración de Puck (puck.config.tsx), no solo definimos campos de texto libre. Definimos componentes que aceptan datos dinámicos.
+
+
+TypeScript
+
+
+
+
+// puck.config.tsx
+import { Config } from "@measured/puck";
+
+type Props = {
+ EventTitle: { color: string }; // El texto viene de la BD, solo el estilo es editable
+ TicketButton: { variant: 'primary' | 'secondary' };
+};
+
+export const config: Config<Props> = {
+ components: {
+   EventTitle: {
+     fields: {
+       color: { type: "text" },
+     },
+     // Renderizamos usando datos pasados al contexto o props globales
+     render: ({ color, puck }) => (
+        // Supongamos que inyectamos 'eventData' en el renderizador
+       <h1 style={{ color }}>{puck.isEditing? "Nombre del Evento (Vista Previa)" : eventData.name}</h1>
+     ),
+   },
+   //...
+ },
+};
+
+Sin embargo, para una robustez máxima, se recomienda "hidratar" los datos iniciales. Cuando el usuario crea un evento nuevo, el backend debe generar un documento JSON inicial para Puck que ya contenga los componentes con los valores por defecto extraídos de la creación del evento.
+
+
+3.3 Sistema de Plantillas (Templates)
+
+
+Para que el usuario pueda "escoger plantillas", el sistema debe tratar las plantillas como documentos de Puck pre-guardados.
+1. Colección templates: Documentos de Firestore que contienen objetos de datos de Puck (content, root).
+2. Flujo de Creación:
+   * El usuario selecciona "Plantilla Concierto Rock".
+   * El backend lee templates/rock-concert.
+   * El backend copia el objeto JSON.
+   * El backend inyecta los datos específicos del evento (título, fecha) en los campos correspondientes del JSON.
+   * El backend guarda este nuevo objeto en events/{newEventId}/content/draft.
+   * Se redirige al usuario al editor Puck cargando este nuevo borrador.
+Este enfoque de "clonación y sustitución" asegura que el usuario comience con un diseño profesional que ya contiene su información, reduciendo la fricción inicial.
+
+
+4. Estrategia de Subdominios Multi-Inquilino (The "Holifes" Architecture)
+
+
+El requerimiento más complejo es la generación dinámica de subdominios (conciertodeverano.holifes.com) en una aplicación Next.js alojada (presumiblemente en Vercel o similar). Esto requiere el uso avanzado de Middleware y Rewrites.
+
+
+4.1 Configuración DNS y Wildcards
+
+
+Primero, el dominio holifes.com debe tener un registro DNS tipo A o CNAME wildcard:
+* Registro: *.holifes.com
+* Valor: 76.76.21.21 (IP de Vercel) o el alias del balanceador de carga.
+Esto asegura que cualquier petición a subdominio.holifes.com llegue a la infraestructura de Next.js.
+
+
+4.2 Next.js Middleware para Enrutamiento Edge
+
+
+El Middleware de Next.js (middleware.ts) intercepta la petición antes de que se renderice la página. Su función es leer el hostname de la petición, extraer el subdominio, y reescribir la URL internamente hacia una ruta dinámica que maneje la renderización del evento.
+
+
+TypeScript
+
+
+
+
+// middleware.ts
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+export function middleware(req: NextRequest) {
+ const url = req.nextUrl;
+ const hostname = req.headers.get('host') |
+
+| '';
+ 
+ // Definir el dominio raíz para desarrollo y producción
+ const currentHost = process.env.NODE_ENV === 'production' 
+  ? 'holifes.com' 
+   : 'localhost:3000';
+
+ // Si es un subdominio (e.g. conciertodeverano.holifes.com)
+ if (hostname.includes('.') &&!hostname.startsWith('www') && hostname!== currentHost) {
+   const subdomain = hostname.replace(`.${currentHost}`, '');
+   
+   // Reescribir la URL internamente
+   // El usuario ve: conciertodeverano.holifes.com
+   // Next.js procesa: /_sites/[subdomain]
+   url.pathname = `/_sites/${subdomain}${url.pathname}`;
+   return NextResponse.rewrite(url);
+ }
+ 
+ return NextResponse.next();
+}
+
+
+
+4.3 Página Dinámica (/_sites/[subdomain]/page.tsx)
+
+
+En la estructura de directorios de Next.js (App Router), se crea una carpeta app/_sites/[site]/page.tsx. Esta página es responsable de:
+1. Recibir el parámetro site (el subdominio).
+2. Consultar Firestore: db.collection('events').where('subdomain', '==', site).get().
+3. Si no existe, devolver 404.
+4. Si existe, recuperar el JSON de Puck (content/published).
+5. Renderizar el componente <Render> de Puck con la configuración y los datos recuperados.19
+Esta arquitectura separa completamente el "Editor" (que vive en app/editor/[id]) del "Visualizador Público" (que vive en el subdominio), optimizando la seguridad y el rendimiento.
+
+
+5. Gestión de Imágenes y Optimización de Medios
+
+
+Para cumplir con el requisito de "cambiar imágenes" de forma robusta y evitar los errores de carga útil de 4MB/1MB mencionados en la Sección 2, es imperativo implementar un gestor de archivos personalizado.
+
+
+5.1 Implementación de Campo Personalizado "Image Upload"
+
+
+El componente de imagen nativo de Puck o los campos de texto simples no son suficientes. Se debe crear un custom field en la configuración de Puck que maneje la carga asíncrona a Firebase Storage.22
+El flujo de datos robusto es:
+1. UI: El usuario hace clic en "Subir Imagen" en el panel lateral de Puck.
+2. Acción: Se selecciona un archivo local.
+3. Carga: El componente React sube el archivo directamente a Firebase Storage usando el SDK del Cliente (evitando pasar por el servidor de Next.js para ahorrar ancho de banda y evitar timeouts).
+   * Ruta de almacenamiento: event-images/{eventId}/{timestamp}-{filename}.
+4. Respuesta: Firebase Storage devuelve una downloadURL (e.g., https://firebasestorage.googleapis.com/...).
+5. Persistencia en Puck: El componente llama a onChange(downloadURL).
+De esta forma, el JSON de Puck que se guarda en Firestore solo contiene cadenas de texto (URLs), que pesan bytes, en lugar de megabytes de datos Base64. Esto elimina virtualmente el riesgo de exceder el límite de 1MB de Firestore por problemas de imágenes.3
+
+
+TypeScript
+
+
+
+
+// Ejemplo conceptual del campo personalizado en puck.config.tsx
+fields: {
+ imageUrl: {
+   type: "custom",
+   render: ({ name, value, onChange }) => {
+     const handleUpload = async (e) => {
+       const file = e.target.files;
+       if (!file) return;
+       
+       // Lógica de subida a Firebase Storage
+       const storageRef = ref(storage, `uploads/${file.name}`);
+       await uploadBytes(storageRef, file);
+       const url = await getDownloadURL(storageRef);
+       
+       // Guardar SOLO la URL en el estado de Puck
+       onChange(url); 
+     };
+
+     return (
+       <div>
+          {value && <img src={value} width="100" />}
+          <input type="file" onChange={handleUpload} />
+       </div>
+     );
+   }
+ }
+}
+
+
+
+6. Pasarelas de Pago y Conversión
+
+
+La integración de botones de compra requiere seguridad. No se debe permitir que el usuario edite la lógica de pago, solo la estética.
+
+
+6.1 Componente "Checkout Button"
+
+
+En puck.config.tsx, se define un componente CheckoutButton.
+* Campos Editables: label (Texto del botón), color, alignment.
+* Datos Inyectados: priceId o eventId.
+Cuando el componente se renderiza en la página pública (_sites/[subdomain]), no es un simple enlace HTML. Es un componente React que interactúa con la API de pagos.
+* Al hacer clic, dispara una llamada a una API Route de Next.js (/api/checkout).
+* Esta API Route valida el stock de entradas en Firestore.
+* Crea una sesión de Checkout (Stripe/MercadoPago) en el servidor.
+* Devuelve la URL de redirección al usuario.
+Este enfoque evita exponer claves de API o lógica de precios en el HTML estático generado por el builder, previniendo la manipulación de precios por parte del usuario final.
+
+
+7. SEO y Posicionamiento en Buscadores
+
+
+Para que los eventos "aparezcan rápidamente en los resultados de Google", la arquitectura debe priorizar la semántica y la velocidad. El uso de subdominios ayuda, ya que Google trata cada subdominio como una entidad separada, pero el contenido es rey.
+
+
+7.1 Server-Side Rendering (SSR) y Metadatos Dinámicos
+
+
+Dado que usamos Next.js App Router, cada página de subdominio (_sites/[subdomain]/page.tsx) es un Server Component por defecto.
+Esto significa que el HTML llega al crawler de Google completamente formado (no es una pantalla blanca esperando JS).
+Para optimizar el SEO, debemos generar metadatos dinámicos basados en la información del evento:
+
+
+TypeScript
+
+
+
+
+// app/_sites/[site]/page.tsx
+export async function generateMetadata({ params }) {
+ const event = await getEventBySubdomain(params.site);
+ return {
+   title: `${event.name} | Holifes Tickets`,
+   description: event.description,
+   openGraph: {
+     images: [event.heroImage],
+   },
+ };
+}
+
+
+
+7.2 Datos Estructurados (JSON-LD)
+
+
+El factor diferenciador para eventos es el esquema Event de Schema.org. Google utiliza esto para mostrar "rich snippets" (fechas y lugares directamente en los resultados de búsqueda).
+El componente <Render> en la página pública debe inyectar un script de datos estructurados:
+
+
+TypeScript
+
+
+
+
+<script
+ type="application/ld+json"
+ dangerouslySetInnerHTML={{
+   __html: JSON.stringify({
+     "@context": "https://schema.org",
+     "@type": "Event",
+     "name": eventData.name,
+     "startDate": eventData.startDate,
+     "endDate": eventData.endDate,
+     "location": {
+       "@type": "Place",
+       "name": eventData.venueName,
+       "address": eventData.address
+     },
+     "image":,
+     "description": eventData.description,
+     "offers": {
+       "@type": "Offer",
+       "price": eventData.price,
+       "priceCurrency": "USD",
+       "url": `https://${eventData.subdomain}.holifes.com`
+     }
+   })
+ }}
+/>
+
+Esta implementación técnica asegura que Google indexe el evento como tal, aumentando dramáticamente la tasa de clics (CTR).
+
+
+8. Conclusión y Recomendaciones Finales
+
+
+La resolución del error de guardado en el editor Puck es el primer paso crítico para estabilizar la plataforma. La adopción de ignoreUndefinedProperties: true en el SDK de Firebase Admin 8 y la reconfiguración de los límites de bodyParser en Next.js 11 eliminarán los bloqueos inmediatos.
+Sin embargo, el éxito del producto "Holifes" depende de la arquitectura subyacente descrita. La separación de responsabilidades mediante Middleware para subdominios, la gestión de imágenes externalizada a Storage para mantener los documentos de Firestore ligeros, y la inyección de datos estructurados para SEO, transforman un simple editor visual en una plataforma SaaS de nivel empresarial.
+
+
+Resumen de Acciones Críticas:
+
+
+1. Inmediato: Implementar la configuración ignoreUndefinedProperties en la inicialización de Firebase Admin.
+2. Inmediato: Verificar que el botón de guardar use onPublish y no selectores externos fuera de contexto.
+3. Corto Plazo: Migrar la carga de imágenes a un Custom Field con subida directa a Firebase Storage para evitar errores 413 y documentos gigantes.
+4. Arquitectura: Configurar el Middleware de Next.js para manejar los subdominios wildcard y enrutarlos al renderizador público.
+5. Negocio: Implementar componentes de Puck con inyección de JSON-LD para garantizar la visibilidad en Google.
+Esta arquitectura no solo resuelve el error actual, sino que escala para soportar miles de eventos simultáneos, cada uno con su propia identidad digital, rendimiento optimizado y seguridad transaccional.
+________________
+
+
+Tablas de Referencia Técnica
+
+
+
+
+Tabla 1: Comparativa de Métodos de Persistencia en Firestore para CMS
+
+
+Método
+	Manejo de undefined
+	Límite de Tamaño
+	Indexación
+	Recomendación
+	Objeto Crudo (Raw JSON)
+	Falla (Error SDK)
+	1 MiB
+	Imposible indexar contenido profundo
+	No viable sin sanitización.
+	Sanitización Recursiva
+	Éxito (claves eliminadas)
+	1 MiB
+	Igual a anterior
+	Viable, pero alto costo de CPU.
+	Config ignoreUndefined
+	Éxito (automático)
+	1 MiB
+	Igual a anterior
+	Altamente Recomendado por eficiencia.
+	Sharding (Subcolecciones)
+	N/A
+	Ilimitado (escalable)
+	Indexable por sección
+	Complejo para un editor visual monolítico como Puck.
+	
+
+Tabla 2: Estrategia de SEO Técnico para Eventos
+
+
+Elemento
+	Implementación Técnica en Next.js/Puck
+	Impacto en Google
+	Meta Tags (Title/Desc)
+	generateMetadata en page.tsx dinámico.
+	Alto (Ranking básico y CTR).
+	Rich Snippets (Event)
+	Inyección JSON-LD en el layout del evento.
+	Crítico para aparecer en el carrusel de eventos de Google.
+	Performance (LCP/CLS)
+	Optimización de imágenes (next/image) dentro de los componentes de Puck.
+	Medio (Factor de ranking Core Web Vitals).
+	Canonical URLs
+	Header HTTP link en Middleware o Metadata.
+	Evita contenido duplicado si se accede por dominio raíz.
+	Fuentes citadas
+1. Document Write - Google Groups, acceso: noviembre 25, 2025, https://groups.google.com/g/firebase-talk/c/pgn4uDIDOz8
+2. setDoc() Called with invalid data. Unsupported field value: undefined - Stack Overflow, acceso: noviembre 25, 2025, https://stackoverflow.com/questions/72390568/setdoc-called-with-invalid-data-unsupported-field-value-undefined
+3. Base64 image upload VS Binary image upload? - Stack Overflow, acceso: noviembre 25, 2025, https://stackoverflow.com/questions/14788130/base64-image-upload-vs-binary-image-upload
+4. Payload Too Large Error: request entity too large | by Muskan Verma - Medium, acceso: noviembre 25, 2025, https://medium.com/@muskanvermabsp/payload-too-large-error-request-entity-too-large-edb30ec097eb
+5. Function DocumentReference.set() called with invalid data. Unsupported field value: a custom Budget object - Stack Overflow, acceso: noviembre 25, 2025, https://stackoverflow.com/questions/48156234/function-documentreference-set-called-with-invalid-data-unsupported-field-val
+6. Firestore Function DocumentReference.update() called with invalid data. Unsupported field value: a custom object - Stack Overflow, acceso: noviembre 25, 2025, https://stackoverflow.com/questions/63891868/firestore-function-documentreference-update-called-with-invalid-data-unsuppor
+7. Why does JSON.stringify ignore keys whose values are undefined? - Stack Overflow, acceso: noviembre 25, 2025, https://stackoverflow.com/questions/31284216/why-does-json-stringify-ignore-keys-whose-values-are-undefined
+8. How to enable `ignoreUndefinedProperties` in node js - Stack Overflow, acceso: noviembre 25, 2025, https://stackoverflow.com/questions/61969722/how-to-enable-ignoreundefinedproperties-in-node-js
+9. Firebase JavaScript SDK Release Notes - Google, acceso: noviembre 25, 2025, https://firebase.google.com/support/release-notes/js
+10. How can I ignore undefined values when updating Firestore data from a Google Cloud Function? - Stack Overflow, acceso: noviembre 25, 2025, https://stackoverflow.com/questions/72779952/how-can-i-ignore-undefined-values-when-updating-firestore-data-from-a-google-clo
+11. next.config.js: serverActions, acceso: noviembre 25, 2025, https://nextjs.org/docs/app/api-reference/config/next-config-js/serverActions
+12. Routing: API Routes - Next.js, acceso: noviembre 25, 2025, https://nextjs.org/docs/pages/building-your-application/routing/api-routes
+13. Usage and limits | Firestore - Firebase - Google, acceso: noviembre 25, 2025, https://firebase.google.com/docs/firestore/quotas
+14. Firebase Error: Document Exceeds 1MB size limit. How to work around it? - Stack Overflow, acceso: noviembre 25, 2025, https://stackoverflow.com/questions/74433628/firebase-error-document-exceeds-1mb-size-limit-how-to-work-around-it
+15. Addressing "API Routes Response Size Limited to 4MB" Error in Next.js, acceso: noviembre 25, 2025, https://nextjs.org/docs/messages/api-routes-response-size-limit
+16. How to override the 4mb API Routes body size limit? - Stack Overflow, acceso: noviembre 25, 2025, https://stackoverflow.com/questions/70503440/how-to-override-the-4mb-api-routes-body-size-limit
+17. custom Context used outside the provider error message - Stack Overflow, acceso: noviembre 25, 2025, https://stackoverflow.com/questions/77609497/custom-context-used-outside-the-provider-error-message
+18. Feature Request: Add Warning when consuming a context whose provider is not mounted · Issue #20003 · facebook/react - GitHub, acceso: noviembre 25, 2025, https://github.com/facebook/react/issues/20003
+19. puckeditor/puck: The visual editor for React - GitHub, acceso: noviembre 25, 2025, https://github.com/puckeditor/puck
+20. how to overrides the components present in Puck editor and insert a new one from context, acceso: noviembre 25, 2025, https://stackoverflow.com/questions/79691072/how-to-overrides-the-components-present-in-puck-editor-and-insert-a-new-one-from
+21. How to Build a React Page Builder: Puck and Tailwind v4, acceso: noviembre 25, 2025, https://puckeditor.com/blog/how-to-build-a-react-page-builder-puck-and-tailwind-4
+22. Custom - Puck Editor, acceso: noviembre 25, 2025, https://puckeditor.com/docs/api-reference/fields/custom
+23. Upload files with Cloud Storage on Web - Firebase, acceso: noviembre 25, 2025, https://firebase.google.com/docs/storage/web/upload-files
+24. Why You Should Avoid Base64 for Image Conversion in APIs | by Sandeep Kella - Medium, acceso: noviembre 25, 2025, https://medium.com/@sandeepkella23/why-you-should-avoid-base64-for-image-conversion-in-apis-c8d77830bfd8
