@@ -1,5 +1,4 @@
-import { Render } from "@measured/puck";
-import { config } from "../../../puck.config";
+import { ClientRender } from "../../../components/Puck/ClientRender";
 import { getEventBySubdomain } from "../../../lib/services/eventService";
 import { EventContextProvider } from "../../../lib/context/EventContext";
 import { notFound } from "next/navigation";
@@ -82,12 +81,7 @@ export default async function EventSitePage(props: PageProps) {
             <main className="min-h-screen bg-white">
                 <EventJsonLd event={event} />
                 <EventContextProvider event={event}>
-                    {/* <Render config={config} data={layoutData} /> */}
-                    <div className="p-10 text-center">
-                        <h1 className="text-3xl font-bold">{event.name}</h1>
-                        <p className="mt-4">Sitio en mantenimiento (Debug Mode)</p>
-                        <p className="text-sm text-gray-500 mt-2">Si ves esto, la carga de datos funciona correctamente.</p>
-                    </div>
+                    <ClientRender data={layoutData} />
                 </EventContextProvider>
             </main>
         );
