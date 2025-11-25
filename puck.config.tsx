@@ -12,6 +12,7 @@ import { Brands } from "./components/Puck/Brands";
 import { TicketPricing } from "./components/Puck/TicketPricing";
 import { PhotoCarousel } from "./components/Puck/PhotoCarousel";
 import { Footer } from "./components/Puck/Footer";
+import { FloatingChat } from "./components/Puck/FloatingChat";
 
 // Campos personalizados
 import { ImageUploadField } from "./components/Puck/Fields/ImageUploadField";
@@ -29,12 +30,13 @@ export type Props = {
         subtitle?: string;
         showDate: boolean;
         showLocation: boolean;
-        ctaLink?: string;
+        // ctaLink removed
         showPaymentButton?: boolean;
         overlay: "none" | "light" | "dark";
         backgroundColor?: string;
         textColor?: string;
         fontFamily?: string;
+        titleAlignment?: "left" | "center" | "right";
     };
     DescripcionEvento: {
         title?: string;
@@ -123,6 +125,15 @@ export type Props = {
         backgroundColor?: string;
         textColor?: string;
     };
+    BotonFlotante: {
+        position: "bottom-left" | "bottom-right";
+        profileImage?: string;
+        chatName?: string;
+        initialMessage?: string;
+        whatsappLink?: string;
+        backgroundColor?: string;
+        textColor?: string;
+    };
 };
 
 // Helper para campos de estilo comunes
@@ -204,10 +215,6 @@ export const config: Config<Props> = {
                         { label: "No", value: false },
                     ],
                 },
-                ctaLink: {
-                    type: "text",
-                    label: "Enlace del Botón",
-                },
                 showPaymentButton: {
                     type: "radio",
                     label: "Mostrar Botón de Pago",
@@ -225,6 +232,15 @@ export const config: Config<Props> = {
                         { label: "Overlay Oscuro", value: "dark" },
                     ],
                 },
+                titleAlignment: {
+                    type: "select",
+                    label: "Alineación del Título",
+                    options: [
+                        { label: "Izquierda", value: "left" },
+                        { label: "Centro", value: "center" },
+                        { label: "Derecha", value: "right" },
+                    ],
+                },
             },
             defaultProps: {
                 showDate: true,
@@ -234,6 +250,7 @@ export const config: Config<Props> = {
                 backgroundColor: "#000000",
                 textColor: "#FFFFFF",
                 fontFamily: "modern",
+                titleAlignment: "center",
             },
             render: (props) => (
                 <EventHero {...props} />
@@ -591,6 +608,51 @@ export const config: Config<Props> = {
             },
             render: (props) => (
                 <Footer {...props} />
+            ),
+        },
+        BotonFlotante: {
+            label: "Botón Flotante (Chat)",
+            fields: {
+                position: {
+                    type: "select",
+                    label: "Posición",
+                    options: [
+                        { label: "Abajo Izquierda", value: "bottom-left" },
+                        { label: "Abajo Derecha", value: "bottom-right" },
+                    ],
+                },
+                profileImage: {
+                    type: "custom",
+                    label: "Foto de Perfil",
+                    render: ({ value, onChange, field }) => (
+                        <ImageUploadField value={value} onChange={onChange} label={field.label} />
+                    ),
+                },
+                chatName: {
+                    type: "text",
+                    label: "Nombre del Chat",
+                },
+                initialMessage: {
+                    type: "textarea",
+                    label: "Mensaje Inicial",
+                },
+                whatsappLink: {
+                    type: "text",
+                    label: "Enlace de WhatsApp",
+                },
+                backgroundColor: styleFields.backgroundColor,
+                textColor: styleFields.textColor,
+            },
+            defaultProps: {
+                position: "bottom-right",
+                chatName: "Soporte",
+                initialMessage: "¿Cómo podemos ayudarte hoy?",
+                whatsappLink: "https://wa.me/",
+                backgroundColor: "#25D366",
+                textColor: "#FFFFFF",
+            },
+            render: (props) => (
+                <FloatingChat {...props} />
             ),
         },
     },

@@ -12,6 +12,23 @@ body {
   background: var(--background);
 }
 
+/* Custom Fonts */
+@font-face {
+  font-family: 'Varsity Regular';
+  src: url('/fonts/varsity_regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Freshman';
+  src: url('/fonts/Freshman.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Toast Notification Customization */
 .Toastify__toast--success {
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
