@@ -1,20 +1,24 @@
 import * as admin from 'firebase-admin';
 
 // Initialize Firebase Admin SDK
-if (!admin.apps.length) {
-    const serviceAccount = JSON.parse(
-        process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}'
-    );
+try {
+    if (!admin.apps.length) {
+        const serviceAccount = JSON.parse(
+            process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}'
+        );
 
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        databaseURL: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseio.com`,
-    });
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            databaseURL: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseio.com`,
+        });
 
-    // Configuración crítica para evitar errores con propiedades undefined en Puck
-    admin.firestore().settings({
-        ignoreUndefinedProperties: true,
-    });
+        // Configuración crítica para evitar errores con propiedades undefined en Puck
+        admin.firestore().settings({
+            ignoreUndefinedProperties: true,
+        });
+    }
+} catch (error) {
+    console.error('Firebase Admin Initialization Error:', error);
 }
 
 export const adminAuth = admin.auth();
