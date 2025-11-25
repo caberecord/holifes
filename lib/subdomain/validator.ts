@@ -71,17 +71,11 @@ export function generateSubdomain(eventName: string): string {
     let subdomain = eventName
         .toLowerCase()
         .trim()
-        // Reemplazar espacios y caracteres especiales con guiones
-        .replace(/[\s_]+/g, '-')
         // Remover acentos y caracteres especiales
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
-        // Remover cualquier caracter que no sea letra, número o guión
-        .replace(/[^a-z0-9-]/g, '')
-        // Remover guiones múltiples
-        .replace(/-+/g, '-')
-        // Remover guiones al inicio y final
-        .replace(/^-+|-+$/g, '');
+        // Remover cualquier caracter que no sea letra o número (elimina espacios, guiones, etc.)
+        .replace(/[^a-z0-9]/g, '');
 
     // Si el resultado es muy corto, agregar sufijo
     if (subdomain.length < 3) {
@@ -113,17 +107,18 @@ export async function generateUniqueSubdomain(
     checkExistence: (subdomain: string) => Promise<boolean>
 ): Promise<string> {
     let subdomain = baseSubdomain;
-    let counter = 1;
 
-    // Verificar si el subdominio base ya existe
+    // Si el subdominio base ya existe, agregar un sufijo aleatorio corto
+    // Intentamos hasta 5 veces con diferentes sufijos
+    let attempts = 0;
     while (await checkExistence(subdomain)) {
-        // Agregar sufijo numérico
-        subdomain = `${baseSubdomain}-${counter}`;
-        counter++;
+        // Generar sufijo aleatorio de 4 caracteres (ej. 73n3)
+        const suffix = Math.random().toString(36).substring(2, 6);
+        subdomain = `${baseSubdomain}-${suffix}`;
 
-        // Prevenir loops infinitos
-        if (counter > 100) {
-            // Agregar timestamp como último recurso
+        attempts++;
+        if (attempts > 5) {
+            // Si falla 5 veces, usar timestamp para garantizar unicidad
             subdomain = `${baseSubdomain}-${Date.now()}`;
             break;
         }
