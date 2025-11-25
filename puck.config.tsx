@@ -3,7 +3,6 @@ import type { Config } from "@measured/puck";
 // Componentes de Puck para eventos
 import { EventHero } from "./components/Puck/EventHero";
 import { EventDescription } from "./components/Puck/EventDescription";
-import { SpeakerGrid } from "./components/Puck/SpeakerGrid";
 import { FAQ } from "./components/Puck/FAQ";
 import { MapLocation } from "./components/Puck/MapLocation";
 import { VideoPlayer } from "./components/Puck/VideoPlayer";
@@ -12,6 +11,7 @@ import { SocialNetworks } from "./components/Puck/SocialNetworks";
 import { Brands } from "./components/Puck/Brands";
 import { TicketPricing } from "./components/Puck/TicketPricing";
 import { PhotoCarousel } from "./components/Puck/PhotoCarousel";
+import { Footer } from "./components/Puck/Footer";
 
 // Campos personalizados
 import { ImageUploadField } from "./components/Puck/Fields/ImageUploadField";
@@ -25,13 +25,10 @@ import { ColorPickerField } from "./components/Puck/Fields/ColorPickerField";
 
 export type Props = {
     HeroEvento: {
-        backgroundImage?: string;
         image?: string;
-        title: string;
         subtitle?: string;
         showDate: boolean;
         showLocation: boolean;
-        ctaText?: string;
         ctaLink?: string;
         showPaymentButton?: boolean;
         overlay: "none" | "light" | "dark";
@@ -43,16 +40,6 @@ export type Props = {
         title?: string;
         content: string;
         alignment: "left" | "center" | "right";
-        backgroundColor?: string;
-        textColor?: string;
-        fontFamily?: string;
-    };
-    GrillaSpeakers: {
-        title: string;
-        columns: 2 | 3 | 4;
-        showBio: boolean;
-        showSocial: boolean;
-        speakers?: any[];
         backgroundColor?: string;
         textColor?: string;
         fontFamily?: string;
@@ -69,6 +56,7 @@ export type Props = {
         showAddress: boolean;
         showDirections: boolean;
         mapZoom: number;
+        alignment: "left" | "center" | "right";
         backgroundColor?: string;
         textColor?: string;
         fontFamily?: string;
@@ -76,6 +64,8 @@ export type Props = {
     VideoPlayer: {
         url: string;
         title?: string;
+        alignment: "left" | "center" | "right";
+        description?: string;
     };
     VenueWidget: {
         // No props for now, reads from context
@@ -108,6 +98,8 @@ export type Props = {
         title?: string;
         showRemaining: boolean;
         lowStockThreshold: number;
+        showBuyButton: boolean;
+        buyButtonText: string;
         backgroundColor?: string;
         textColor?: string;
         fontFamily?: string;
@@ -123,6 +115,14 @@ export type Props = {
         textColor?: string;
         fontFamily?: string;
     };
+    PieDePagina: {
+        links: Array<{
+            label: string;
+            url: string;
+        }>;
+        backgroundColor?: string;
+        textColor?: string;
+    };
 };
 
 // Helper para campos de estilo comunes
@@ -136,7 +136,7 @@ const styleFields = {
     },
     textColor: {
         type: "custom" as const,
-        label: "Color de Texto",
+        label: "Color Tipografía",
         render: ({ value, onChange }: any) => (
             <ColorPickerField value={value} onChange={onChange} />
         ),
@@ -177,14 +177,6 @@ export const config: Config<Props> = {
                         <ImageUploadField value={value} onChange={onChange} label={field.label} />
                     ),
                 },
-                backgroundImage: {
-                    type: "text",
-                    label: "URL de Imagen de Fondo (Manual)",
-                },
-                title: {
-                    type: "text",
-                    label: "Título Principal",
-                },
                 subtitle: {
                     type: "textarea",
                     label: "Subtítulo",
@@ -204,10 +196,6 @@ export const config: Config<Props> = {
                         { label: "Sí", value: true },
                         { label: "No", value: false },
                     ],
-                },
-                ctaText: {
-                    type: "text",
-                    label: "Texto del Botón (CTA)",
                 },
                 ctaLink: {
                     type: "text",
@@ -232,13 +220,12 @@ export const config: Config<Props> = {
                 },
             },
             defaultProps: {
-                title: "Nombre del Evento",
                 showDate: true,
                 showLocation: true,
                 showPaymentButton: false,
                 overlay: "dark",
-                backgroundColor: "",
-                textColor: "",
+                backgroundColor: "#000000",
+                textColor: "#FFFFFF",
                 fontFamily: "modern",
             },
             render: (props) => (
@@ -270,94 +257,12 @@ export const config: Config<Props> = {
             defaultProps: {
                 content: "Descripción del evento...",
                 alignment: "left",
-                backgroundColor: "",
-                textColor: "",
+                backgroundColor: "#FFFFFF",
+                textColor: "#000000",
                 fontFamily: "modern",
             },
             render: (props) => (
                 <EventDescription {...props} />
-            ),
-        },
-        GrillaSpeakers: {
-            label: "Artistas / Conferencistas",
-            fields: {
-                ...styleFields,
-                title: {
-                    type: "text",
-                    label: "Título de la Sección",
-                },
-                columns: {
-                    type: "select",
-                    label: "Columnas",
-                    options: [
-                        { label: "2 Columnas", value: 2 },
-                        { label: "3 Columnas", value: 3 },
-                        { label: "4 Columnas", value: 4 },
-                    ],
-                },
-                showBio: {
-                    type: "radio",
-                    label: "Mostrar Biografía",
-                    options: [
-                        { label: "Sí", value: true },
-                        { label: "No", value: false },
-                    ],
-                },
-                showSocial: {
-                    type: "radio",
-                    label: "Mostrar Redes Sociales",
-                    options: [
-                        { label: "Sí", value: true },
-                        { label: "No", value: false },
-                    ],
-                },
-                speakers: {
-                    type: "array",
-                    label: "Conferencistas",
-                    arrayFields: {
-                        name: { type: "text", label: "Nombre" },
-                        title: { type: "text", label: "Título/Cargo" },
-                        image: {
-                            type: "custom",
-                            label: "Foto",
-                            render: ({ value, onChange, field }) => (
-                                <ImageUploadField value={value} onChange={onChange} label={field.label} />
-                            ),
-                        },
-                        bio: { type: "textarea", label: "Biografía" },
-                        socialLinks: {
-                            type: "array",
-                            label: "Redes Sociales",
-                            arrayFields: {
-                                platform: {
-                                    type: "select",
-                                    label: "Plataforma",
-                                    options: [
-                                        { label: "Twitter", value: "twitter" },
-                                        { label: "LinkedIn", value: "linkedin" },
-                                        { label: "Instagram", value: "instagram" },
-                                        { label: "Facebook", value: "facebook" },
-                                        { label: "Website", value: "website" },
-                                    ],
-                                },
-                                url: { type: "text", label: "URL" },
-                            },
-                        },
-                    },
-                },
-            },
-            defaultProps: {
-                title: "Conferencistas",
-                columns: 3,
-                showBio: true,
-                showSocial: true,
-                speakers: [],
-                backgroundColor: "",
-                textColor: "",
-                fontFamily: "modern",
-            },
-            render: (props) => (
-                <SpeakerGrid {...props as any} />
             ),
         },
         PreguntasFrecuentes: {
@@ -426,14 +331,24 @@ export const config: Config<Props> = {
                     min: 10,
                     max: 18,
                 },
+                alignment: {
+                    type: "select",
+                    label: "Alineación del Mapa",
+                    options: [
+                        { label: "Izquierda", value: "left" },
+                        { label: "Centro", value: "center" },
+                        { label: "Derecha", value: "right" },
+                    ],
+                },
             },
             defaultProps: {
                 showMap: true,
                 showAddress: true,
                 showDirections: true,
                 mapZoom: 15,
-                backgroundColor: "",
-                textColor: "",
+                alignment: "center",
+                backgroundColor: "#F9FAFB",
+                textColor: "#111827",
                 fontFamily: "modern",
             },
             render: (props) => (
@@ -451,9 +366,23 @@ export const config: Config<Props> = {
                     type: "text",
                     label: "Título (opcional)",
                 },
+                alignment: {
+                    type: "select",
+                    label: "Alineación del Video",
+                    options: [
+                        { label: "Izquierda", value: "left" },
+                        { label: "Centro", value: "center" },
+                        { label: "Derecha", value: "right" },
+                    ],
+                },
+                description: {
+                    type: "textarea",
+                    label: "Descripción",
+                },
             },
             defaultProps: {
                 url: "",
+                alignment: "center",
             },
             render: (props) => (
                 <VideoPlayer {...props} />
@@ -515,8 +444,8 @@ export const config: Config<Props> = {
                 iconSize: 24,
                 iconColor: "#4B5563",
                 links: [],
-                backgroundColor: "",
-                textColor: "",
+                backgroundColor: "#FFFFFF",
+                textColor: "#000000",
                 fontFamily: "modern",
             },
             render: (props) => <SocialNetworks {...props} />,
@@ -544,8 +473,8 @@ export const config: Config<Props> = {
             },
             defaultProps: {
                 brands: [],
-                backgroundColor: "",
-                textColor: "",
+                backgroundColor: "#FFFFFF",
+                textColor: "#000000",
                 fontFamily: "modern",
             },
             render: (props) => <Brands {...props} />,
@@ -567,13 +496,27 @@ export const config: Config<Props> = {
                     type: "number",
                     label: "Umbral de 'Casi Agotado'",
                 },
+                showBuyButton: {
+                    type: "radio",
+                    label: "Mostrar Botón de Compra",
+                    options: [
+                        { label: "Sí", value: true },
+                        { label: "No", value: false },
+                    ],
+                },
+                buyButtonText: {
+                    type: "text",
+                    label: "Texto del Botón",
+                },
             },
             defaultProps: {
                 title: "Entradas",
                 showRemaining: true,
                 lowStockThreshold: 10,
-                backgroundColor: "",
-                textColor: "",
+                showBuyButton: false,
+                buyButtonText: "Comprar Entradas",
+                backgroundColor: "#F3F4F6",
+                textColor: "#111827",
                 fontFamily: "inter",
             },
             render: (props) => (
@@ -612,12 +555,35 @@ export const config: Config<Props> = {
                 title: "Galería",
                 effect: "coverflow",
                 images: [],
-                backgroundColor: "",
-                textColor: "",
+                backgroundColor: "#FFFFFF",
+                textColor: "#000000",
                 fontFamily: "inter",
             },
             render: (props) => (
                 <PhotoCarousel {...props} />
+            ),
+        },
+        PieDePagina: {
+            label: "Pie de Página",
+            fields: {
+                backgroundColor: styleFields.backgroundColor,
+                textColor: styleFields.textColor,
+                links: {
+                    type: "array",
+                    label: "Enlaces Personalizados",
+                    arrayFields: {
+                        label: { type: "text", label: "Texto del Enlace" },
+                        url: { type: "text", label: "URL" },
+                    },
+                },
+            },
+            defaultProps: {
+                links: [],
+                backgroundColor: "#111827",
+                textColor: "#F3F4F6",
+            },
+            render: (props) => (
+                <Footer {...props} />
             ),
         },
     },

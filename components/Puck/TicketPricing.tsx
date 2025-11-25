@@ -7,6 +7,8 @@ interface TicketPricingProps {
     title?: string;
     showRemaining: boolean;
     lowStockThreshold: number;
+    showBuyButton?: boolean;
+    buyButtonText?: string;
     backgroundColor?: string;
     textColor?: string;
     fontFamily?: string;
@@ -16,6 +18,8 @@ export function TicketPricing({
     title,
     showRemaining = true,
     lowStockThreshold = 10,
+    showBuyButton = false,
+    buyButtonText = "Comprar Entradas",
     backgroundColor,
     textColor,
     fontFamily = "inter"
@@ -79,70 +83,84 @@ export function TicketPricing({
                         return (
                             <div
                                 key={index}
-                                className="relative flex bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow transform hover:-translate-y-1 duration-300"
+                                className="relative flex flex-col bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow transform hover:-translate-y-1 duration-300"
                                 style={{
                                     backgroundColor: backgroundColor ? 'rgba(255,255,255,0.9)' : 'white',
                                 }}
                             >
-                                {/* Left Side (Main Info) */}
-                                <div className="flex-1 p-6 flex flex-col justify-between relative border-r border-dashed border-gray-300">
-                                    {/* Cutout circles for ticket effect */}
-                                    <div className="absolute -top-3 -right-3 w-6 h-6 bg-[#F3F4F6] rounded-full" style={{ backgroundColor: backgroundColor || '#F3F4F6' }}></div>
-                                    <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-[#F3F4F6] rounded-full" style={{ backgroundColor: backgroundColor || '#F3F4F6' }}></div>
+                                <div className="flex flex-1">
+                                    {/* Left Side (Main Info) */}
+                                    <div className="flex-1 p-6 flex flex-col justify-between relative border-r border-dashed border-gray-300">
+                                        {/* Cutout circles for ticket effect */}
+                                        <div className="absolute -top-3 -right-3 w-6 h-6 bg-[#F3F4F6] rounded-full" style={{ backgroundColor: backgroundColor || '#F3F4F6' }}></div>
+                                        <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-[#F3F4F6] rounded-full" style={{ backgroundColor: backgroundColor || '#F3F4F6' }}></div>
 
-                                    <div>
-                                        <h3
-                                            className="text-2xl font-bold mb-2 uppercase tracking-wide"
-                                            style={{ color: textColor || '#111827' }}
-                                        >
-                                            {zone.name}
-                                        </h3>
-                                        <p className="text-gray-500 text-sm mb-4" style={{ color: textColor ? `${textColor}99` : '#6B7280' }}>
-                                            Acceso General
-                                        </p>
-                                    </div>
-
-                                    <div className="mt-4">
-                                        <span
-                                            className="text-4xl font-bold text-indigo-600"
-                                            style={{ color: textColor || '#4F46E5' }}
-                                        >
-                                            ${zone.price.toLocaleString()}
-                                        </span>
-                                    </div>
-
-                                    {showRemaining && (
-                                        <div className="mt-4">
-                                            {isSoldOut ? (
-                                                <span className="inline-block px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full uppercase">
-                                                    Agotado
-                                                </span>
-                                            ) : isLowStock ? (
-                                                <span className="inline-block px-3 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded-full uppercase animate-pulse">
-                                                    ¡Últimos {remaining} boletos!
-                                                </span>
-                                            ) : (
-                                                <span className="text-sm text-gray-500" style={{ color: textColor ? `${textColor}80` : '#6B7280' }}>
-                                                    Disponibles
-                                                </span>
-                                            )}
+                                        <div>
+                                            <h3
+                                                className="text-2xl font-bold mb-2 uppercase tracking-wide"
+                                                style={{ color: textColor || '#111827' }}
+                                            >
+                                                {zone.name}
+                                            </h3>
+                                            <p className="text-gray-500 text-sm mb-4" style={{ color: textColor ? `${textColor}99` : '#6B7280' }}>
+                                                Acceso General
+                                            </p>
                                         </div>
-                                    )}
+
+                                        <div className="mt-4">
+                                            <span
+                                                className="text-4xl font-bold text-indigo-600"
+                                                style={{ color: textColor || '#4F46E5' }}
+                                            >
+                                                ${zone.price.toLocaleString()}
+                                            </span>
+                                        </div>
+
+                                        {showRemaining && (
+                                            <div className="mt-4">
+                                                {isSoldOut ? (
+                                                    <span className="inline-block px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full uppercase">
+                                                        Agotado
+                                                    </span>
+                                                ) : isLowStock ? (
+                                                    <span className="inline-block px-3 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded-full uppercase animate-pulse">
+                                                        ¡Últimos {remaining} boletos!
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-sm text-gray-500" style={{ color: textColor ? `${textColor}80` : '#6B7280' }}>
+                                                        Disponibles
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Right Side (Stub) */}
+                                    <div className="w-24 bg-gray-50 flex flex-col items-center justify-center p-2 border-l border-dashed border-gray-300 relative">
+                                        {/* Cutout circles for ticket effect */}
+                                        <div className="absolute -top-3 -left-3 w-6 h-6 bg-[#F3F4F6] rounded-full" style={{ backgroundColor: backgroundColor || '#F3F4F6' }}></div>
+                                        <div className="absolute -bottom-3 -left-3 w-6 h-6 bg-[#F3F4F6] rounded-full" style={{ backgroundColor: backgroundColor || '#F3F4F6' }}></div>
+
+                                        <div className="transform -rotate-90 whitespace-nowrap">
+                                            <span className="text-xs font-mono text-gray-400 tracking-widest">ADMIT ONE</span>
+                                        </div>
+                                        <div className="mt-4">
+                                            <Ticket className="w-8 h-8 text-gray-300" />
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {/* Right Side (Stub) */}
-                                <div className="w-24 bg-gray-50 flex flex-col items-center justify-center p-2 border-l border-dashed border-gray-300 relative">
-                                    {/* Cutout circles for ticket effect */}
-                                    <div className="absolute -top-3 -left-3 w-6 h-6 bg-[#F3F4F6] rounded-full" style={{ backgroundColor: backgroundColor || '#F3F4F6' }}></div>
-                                    <div className="absolute -bottom-3 -left-3 w-6 h-6 bg-[#F3F4F6] rounded-full" style={{ backgroundColor: backgroundColor || '#F3F4F6' }}></div>
-
-                                    <div className="transform -rotate-90 whitespace-nowrap">
-                                        <span className="text-xs font-mono text-gray-400 tracking-widest">ADMIT ONE</span>
+                                {/* Buy Button Section */}
+                                {showBuyButton && !isSoldOut && (
+                                    <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                                        <button
+                                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors shadow-md"
+                                            onClick={() => alert(`Comprando entrada para: ${zone.name}`)}
+                                        >
+                                            {buyButtonText}
+                                        </button>
                                     </div>
-                                    <div className="mt-4">
-                                        <Ticket className="w-8 h-8 text-gray-300" />
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         );
                     })}

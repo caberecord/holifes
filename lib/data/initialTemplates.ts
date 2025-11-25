@@ -12,11 +12,10 @@ export const INITIAL_TEMPLATES = [
                     type: 'HeroEvento',
                     props: {
                         id: 'hero-1',
-                        title: 'NOMBRE DEL ARTISTA',
                         subtitle: 'WORLD TOUR 2025',
                         showDate: true,
                         showLocation: true,
-                        ctaText: 'COMPRAR TICKETS',
+                        ctaLink: '#tickets',
                         overlay: 'dark',
                         fontFamily: 'anton',
                         textColor: '#ffffff',
@@ -41,6 +40,8 @@ export const INITIAL_TEMPLATES = [
                         title: 'ENTRADAS',
                         showRemaining: true,
                         lowStockThreshold: 20,
+                        showBuyButton: true,
+                        buyButtonText: 'COMPRAR TICKETS',
                         backgroundColor: '#000000',
                         textColor: '#ffffff'
                     }
@@ -68,26 +69,14 @@ export const INITIAL_TEMPLATES = [
                     type: 'HeroEvento',
                     props: {
                         id: 'hero-2',
-                        title: 'Tech Summit 2025',
                         subtitle: 'Innovación y Futuro',
                         showDate: true,
                         showLocation: true,
-                        ctaText: 'Registrarse',
+                        ctaLink: '#register',
                         overlay: 'light',
                         fontFamily: 'inter',
                         textColor: '#1a1a1a',
                         backgroundColor: '#ffffff'
-                    }
-                },
-                {
-                    type: 'SpeakerGrid',
-                    props: {
-                        id: 'speakers-1',
-                        title: 'Nuestros Speakers',
-                        columns: 4,
-                        showBio: true,
-                        showSocial: true,
-                        backgroundColor: '#f3f4f6'
                     }
                 },
                 {
@@ -106,6 +95,8 @@ export const INITIAL_TEMPLATES = [
                         id: 'tickets-2',
                         title: 'Pases de Acceso',
                         showRemaining: false,
+                        showBuyButton: true,
+                        buyButtonText: 'Registrarse Ahora',
                         backgroundColor: '#ffffff'
                     }
                 }

@@ -3,13 +3,10 @@
 import { useEventContext } from '../../lib/context/EventContext';
 
 interface EventHeroProps {
-    backgroundImage?: string;
     image?: string;
-    title: string;
     subtitle?: string;
     showDate: boolean;
     showLocation: boolean;
-    ctaText?: string;
     ctaLink?: string;
     showPaymentButton?: boolean;
     overlay: "none" | "light" | "dark";
@@ -19,13 +16,10 @@ interface EventHeroProps {
 }
 
 export function EventHero({
-    backgroundImage,
     image,
-    title,
     subtitle,
     showDate,
     showLocation,
-    ctaText,
     ctaLink,
     showPaymentButton,
     overlay,
@@ -35,10 +29,10 @@ export function EventHero({
 }: EventHeroProps) {
     const event = useEventContext();
 
-    const actualTitle = event?.name || title;
+    const actualTitle = event?.name || "Nombre del Evento";
     const actualDate = event?.date;
     const actualLocation = event?.location;
-    const actualImage = image || event?.imageUrl || backgroundImage;
+    const actualImage = image || event?.imageUrl;
 
     let formattedDate = '';
     if (showDate && actualDate) {
@@ -141,14 +135,6 @@ export function EventHero({
 
                 {/* CTA Buttons */}
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                    {ctaText && (
-                        <a
-                            href={ctaLink || '#tickets'}
-                            className="inline-block px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-lg shadow-lg transition-all hover:scale-105"
-                        >
-                            {ctaText}
-                        </a>
-                    )}
 
                     {showPaymentButton && (
                         <button

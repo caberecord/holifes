@@ -3,9 +3,16 @@ import React from 'react';
 interface VideoPlayerProps {
     url: string;
     title?: string;
+    alignment?: "left" | "center" | "right";
+    description?: string;
 }
 
-export function VideoPlayer({ url, title }: VideoPlayerProps) {
+export function VideoPlayer({
+    url,
+    title,
+    alignment = "center",
+    description
+}: VideoPlayerProps) {
     // Función simple para obtener ID de YouTube o Vimeo
     const getEmbedUrl = (url: string) => {
         if (!url) return '';
@@ -35,17 +42,34 @@ export function VideoPlayer({ url, title }: VideoPlayerProps) {
         );
     }
 
+    const isCenter = alignment === "center";
+
     return (
-        <div className="w-full max-w-4xl mx-auto p-4">
-            {title && <h3 className="text-2xl font-bold mb-4 text-center">{title}</h3>}
-            <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-lg">
-                <iframe
-                    src={embedUrl}
-                    title={title || "Video player"}
-                    className="absolute top-0 left-0 w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                />
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-8">
+            {title && <h3 className={`text-2xl md:text-3xl font-bold mb-8 ${isCenter ? 'text-center' : 'text-left'}`}>{title}</h3>}
+
+            <div className={`flex flex-col ${!isCenter ? 'md:flex-row' : ''} ${alignment === 'right' ? 'md:flex-row-reverse' : ''} gap-8 items-center`}>
+                {/* Video Container */}
+                <div className={`w-full ${isCenter ? 'max-w-4xl mx-auto' : 'md:w-1/2'}`}>
+                    <div className="relative w-full aspect-video rounded-xl overflow-hidden shadow-lg">
+                        <iframe
+                            src={embedUrl}
+                            title={title || "Video player"}
+                            className="absolute top-0 left-0 w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                        />
+                    </div>
+                </div>
+
+                {/* Description Container */}
+                {description && (
+                    <div className={`w-full ${isCenter ? 'max-w-4xl mx-auto text-center' : 'md:w-1/2 text-left'}`}>
+                        <div className="prose prose-lg text-gray-600">
+                            <p>{description}</p>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
