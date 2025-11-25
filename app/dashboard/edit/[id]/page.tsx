@@ -47,6 +47,19 @@ export default function EditEventPage() {
         { id: "integrations", label: "Integraciones", icon: Share2 },
     ];
 
+    const [baseDomain, setBaseDomain] = useState("holifes.com");
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const host = window.location.host;
+            if (host.includes("localhost")) {
+                setBaseDomain("localhost:3000");
+            } else {
+                setBaseDomain("holifes.com");
+            }
+        }
+    }, []);
+
     return (
         <div className="min-h-screen bg-gray-50">
             <EventHeader event={event} />
@@ -92,7 +105,7 @@ export default function EditEventPage() {
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Micrositio del Evento</h2>
                                 <p className="text-gray-500 max-w-xl">
-                                    Crea una página web profesional para tu evento con un subdominio personalizado (ej. <strong>{event.name.toLowerCase().replace(/[^a-z0-9]/g, "")}.holifes.com</strong>).
+                                    Crea una página web profesional para tu evento con un subdominio personalizado (ej. <strong>{event.name.toLowerCase().replace(/[^a-z0-9]/g, "")}.{baseDomain}</strong>).
                                     Usa nuestra IA para generar el diseño y contenido en segundos.
                                 </p>
 
@@ -107,12 +120,12 @@ export default function EditEventPage() {
                                                 Tu evento está visible en:
                                             </p>
                                             <a
-                                                href={`http://${event.subdomain}.localhost:3000`}
+                                                href={`http://${event.subdomain}.${baseDomain}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-sm font-bold text-green-700 hover:underline mt-1 block"
                                             >
-                                                {event.subdomain}.holifes.com
+                                                {event.subdomain}.{baseDomain}
                                             </a>
                                         </div>
                                     </div>
@@ -130,7 +143,7 @@ export default function EditEventPage() {
 
                                 {event.status_site === 'published' && event.subdomain && (
                                     <a
-                                        href={`http://${event.subdomain}.localhost:3000`}
+                                        href={`http://${event.subdomain}.${baseDomain}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
