@@ -114,12 +114,13 @@ export async function generateUniqueSubdomain(
     while (await checkExistence(subdomain)) {
         // Generar sufijo aleatorio de 4 caracteres (ej. 73n3)
         const suffix = Math.random().toString(36).substring(2, 6);
-        subdomain = `${baseSubdomain}-${suffix}`;
+        // Concatenar directamente sin guión
+        subdomain = `${baseSubdomain}${suffix}`;
 
         attempts++;
         if (attempts > 5) {
             // Si falla 5 veces, usar timestamp para garantizar unicidad
-            subdomain = `${baseSubdomain}-${Date.now()}`;
+            subdomain = `${baseSubdomain}${Date.now()}`;
             break;
         }
     }
