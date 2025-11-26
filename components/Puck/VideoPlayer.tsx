@@ -62,7 +62,7 @@ export const VideoPlayer = ({
                 )}
 
                 {embedUrl ? (
-                    <div className="w-full aspect-video rounded-xl overflow-hidden shadow-xl mb-6">
+                    <div key={embedUrl} className="w-full aspect-video rounded-xl overflow-hidden shadow-xl mb-6">
                         <iframe
                             src={embedUrl}
                             className="w-full h-full"

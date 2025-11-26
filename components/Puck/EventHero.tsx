@@ -83,14 +83,15 @@ export const EventHero = ({
 
     const overlayStyle = getOverlayStyle();
 
-    // Date formatting
+    // Date formatting with Fallback for Editor
     const formatDate = (dateString?: string) => {
-        if (!dateString) return null;
+        if (!dateString) return "Fecha por definir"; // Fallback text
         const date = new Date(dateString);
         return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     };
 
-    const formattedDate = formatDate(event?.startDate);
+    // Use event date or fallback date if showDate is true
+    const displayDate = event?.startDate ? formatDate(event.startDate) : "18 Noviembre 2025";
 
     // Layout Content Components
     const TitleSection = () => (
@@ -124,20 +125,20 @@ export const EventHero = ({
             )}
 
             <div className="flex flex-col gap-3">
-                {showLocation && event?.location && (
+                {showLocation && (
                     <div className="flex items-center gap-3 text-white">
                         <MapPin className="text-red-500" size={28} />
                         <span className="text-xl font-bold" style={{ color: textColor || '#ffffff' }}>
-                            {event.location}
+                            {event?.location || "Ubicación del Evento"}
                         </span>
                     </div>
                 )}
 
-                {showDate && formattedDate && (
+                {showDate && (
                     <div className="flex items-center gap-3 text-white">
                         <Calendar className="text-white" size={28} />
                         <span className="text-xl font-bold" style={{ color: textColor || '#ffffff' }}>
-                            {formattedDate}
+                            {displayDate}
                         </span>
                     </div>
                 )}
@@ -167,8 +168,8 @@ export const EventHero = ({
                 }}
             />
 
-            {/* Content Container */}
-            <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center">
+            {/* Content Container with Pronounced Margins */}
+            <div className="relative h-full max-w-7xl mx-auto px-8 md:px-24 lg:px-32 flex flex-col justify-center">
 
                 {/* Center Layout */}
                 {titleAlignment === 'center' && (
@@ -181,7 +182,7 @@ export const EventHero = ({
                 {/* Left Layout (Split: Title Left, Info Right) */}
                 {titleAlignment === 'left' && (
                     <div className="flex flex-col md:flex-row items-center justify-between w-full gap-8">
-                        <div className="w-full md:w-1/2 text-left p-4">
+                        <div className="w-full md:w-1/2 text-left">
                             <TitleSection />
                         </div>
                         <div className="w-full md:w-1/2 flex justify-end">
