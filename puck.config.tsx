@@ -70,6 +70,7 @@ export type Props = {
         description?: string;
         backgroundColor?: string;
         textColor?: string;
+        fontFamily?: string;
     };
     VenueWidget: {
         // No props for now, reads from context
@@ -407,12 +408,14 @@ export const config: Config<Props> = {
                 },
                 backgroundColor: styleFields.backgroundColor,
                 textColor: styleFields.textColor,
+                fontFamily: styleFields.fontFamily,
             },
             defaultProps: {
                 url: "",
                 alignment: "center",
                 backgroundColor: "#FFFFFF",
                 textColor: "#000000",
+                fontFamily: "modern",
             },
             render: (props) => (
                 <VideoPlayer {...props} />

@@ -83,15 +83,19 @@ export const EventHero = ({
 
     const overlayStyle = getOverlayStyle();
 
-    // Date formatting with Fallback for Editor
+    // Date formatting
     const formatDate = (dateString?: string) => {
-        if (!dateString) return "Fecha por definir"; // Fallback text
+        if (!dateString) return null;
         const date = new Date(dateString);
         return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     };
 
-    // Use event date or fallback date if showDate is true
-    const displayDate = event?.startDate ? formatDate(event.startDate) : "18 Noviembre 2025";
+    // Use event date, fallback only if event is missing (e.g. editor preview without context)
+    // If event exists but has no date, show "Fecha por definir"
+    // If event is undefined (editor), show a placeholder date ONLY if we want to preview it, 
+    // but user requested to show DB date. 
+    // Logic: If event.startDate exists, use it. If not, show "Fecha por definir".
+    const displayDate = event?.startDate ? formatDate(event.startDate) : "Fecha por definir";
 
     // Layout Content Components
     const TitleSection = () => (
@@ -169,7 +173,7 @@ export const EventHero = ({
             />
 
             {/* Content Container with Pronounced Margins */}
-            <div className="relative h-full max-w-7xl mx-auto px-8 md:px-24 lg:px-32 flex flex-col justify-center">
+            <div className="relative h-full max-w-7xl mx-auto px-8 md:px-32 lg:px-48 flex flex-col justify-center">
 
                 {/* Center Layout */}
                 {titleAlignment === 'center' && (
