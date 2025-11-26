@@ -86,10 +86,18 @@ export const FloatingChat = ({
             {/* Toggle Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+                className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 overflow-hidden"
                 style={{ backgroundColor: backgroundColor, color: textColor }}
             >
-                {isOpen ? <X size={28} /> : <MessageCircle size={28} />}
+                {isOpen ? (
+                    <X size={28} />
+                ) : (
+                    <img
+                        src="/ico_whatsapp.png"
+                        alt="WhatsApp"
+                        className="w-full h-full object-cover"
+                    />
+                )}
             </button>
         </div>
     );

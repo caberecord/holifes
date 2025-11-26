@@ -1,6 +1,7 @@
 'use client';
 
 import { useEventContext } from '../../lib/context/EventContext';
+import { Calendar, MapPin } from 'lucide-react';
 
 interface EventHeroProps {
     // Config
@@ -69,13 +70,6 @@ export const EventHero = ({
     // Prioridad: Imagen manual (Puck) -> Imagen del evento -> Placeholder
     const actualImage = image || event?.imageUrl || "https://images.unsplash.com/photo-1492684223066-81342ee5ff30";
 
-    // Alignment classes
-    const alignmentClass = {
-        left: 'items-start text-left',
-        center: 'items-center text-center',
-        right: 'items-end text-right'
-    }[titleAlignment] || 'items-center text-center';
-
     // Overlay logic
     const getOverlayStyle = () => {
         if (overlay === 'none') return { backgroundColor: 'transparent', opacity: 0 };
@@ -88,6 +82,68 @@ export const EventHero = ({
     };
 
     const overlayStyle = getOverlayStyle();
+
+    // Date formatting
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return null;
+        const date = new Date(dateString);
+        return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    };
+
+    const formattedDate = formatDate(event?.startDate);
+
+    // Layout Content Components
+    const TitleSection = () => (
+        <div className="flex flex-col gap-4">
+            <h1
+                className={`text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight ${fontClass} uppercase`}
+                style={{ color: textColor || '#ffffff', lineHeight: 0.9 }}
+            >
+                {actualTitle}
+            </h1>
+            {subtitle && (
+                <p
+                    className="text-xl md:text-2xl font-medium opacity-90"
+                    style={{ color: textColor || '#ffffff' }}
+                >
+                    {subtitle}
+                </p>
+            )}
+        </div>
+    );
+
+    const InfoSection = () => (
+        <div className={`flex flex-col gap-6 ${titleAlignment === 'center' ? 'items-center' : titleAlignment === 'right' ? 'items-start' : 'items-start'}`}>
+            {/* Payment Button */}
+            {showPaymentButton && (
+                <button
+                    className="px-8 py-3 bg-[#634cc9] hover:bg-[#523da8] text-white font-bold rounded-full transition-all transform hover:scale-105 shadow-lg uppercase tracking-wide text-sm mb-2"
+                >
+                    Comprar Entradas
+                </button>
+            )}
+
+            <div className="flex flex-col gap-3">
+                {showLocation && event?.location && (
+                    <div className="flex items-center gap-3 text-white">
+                        <MapPin className="text-red-500" size={28} />
+                        <span className="text-xl font-bold" style={{ color: textColor || '#ffffff' }}>
+                            {event.location}
+                        </span>
+                    </div>
+                )}
+
+                {showDate && formattedDate && (
+                    <div className="flex items-center gap-3 text-white">
+                        <Calendar className="text-white" size={28} />
+                        <span className="text-xl font-bold" style={{ color: textColor || '#ffffff' }}>
+                            {formattedDate}
+                        </span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 
     return (
         <section
@@ -111,53 +167,41 @@ export const EventHero = ({
                 }}
             />
 
-            {/* Content */}
+            {/* Content Container */}
             <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-center">
-                <div className={`flex flex-col ${alignmentClass} max-w-4xl mx-auto w-full`}>
-                    <h1
-                        className={`text-4xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight ${fontClass}`}
-                        style={{ color: textColor || '#ffffff' }}
-                    >
-                        {actualTitle}
-                    </h1>
 
-                    {subtitle && (
-                        <p
-                            className="text-xl md:text-2xl mb-8 opacity-90"
-                            style={{ color: textColor || '#ffffff' }}
-                        >
-                            {subtitle}
-                        </p>
-                    )}
-
-                    {/* Info Badges (Date & Location) */}
-                    <div className="flex flex-wrap gap-4 mb-8 justify-center">
-                        {showDate && event?.startDate && (
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white">
-                                <span className="text-sm font-medium">
-                                    {new Date(event.startDate).toLocaleDateString()}
-                                </span>
-                            </div>
-                        )}
-
-                        {showLocation && event?.location && (
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white">
-                                <span className="text-sm font-medium">
-                                    {event.location}
-                                </span>
-                            </div>
-                        )}
+                {/* Center Layout */}
+                {titleAlignment === 'center' && (
+                    <div className="flex flex-col items-center text-center max-w-4xl mx-auto w-full gap-12">
+                        <TitleSection />
+                        <InfoSection />
                     </div>
+                )}
 
-                    {/* Payment Button */}
-                    {showPaymentButton && (
-                        <button
-                            className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-full transition-all transform hover:scale-105 shadow-lg"
-                        >
-                            Comprar Entradas
-                        </button>
-                    )}
-                </div>
+                {/* Left Layout (Split: Title Left, Info Right) */}
+                {titleAlignment === 'left' && (
+                    <div className="flex flex-col md:flex-row items-center justify-between w-full gap-8">
+                        <div className="w-full md:w-1/2 text-left p-4">
+                            <TitleSection />
+                        </div>
+                        <div className="w-full md:w-1/2 flex justify-end">
+                            <InfoSection />
+                        </div>
+                    </div>
+                )}
+
+                {/* Right Layout (Split: Info Left, Title Right) */}
+                {titleAlignment === 'right' && (
+                    <div className="flex flex-col md:flex-row items-center justify-between w-full gap-8">
+                        <div className="w-full md:w-1/2 flex justify-start">
+                            <InfoSection />
+                        </div>
+                        <div className="w-full md:w-1/2 text-right">
+                            <TitleSection />
+                        </div>
+                    </div>
+                )}
+
             </div>
         </section>
     );
