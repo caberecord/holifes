@@ -76,6 +76,7 @@ export interface Event {
     // Metadata
     status: 'draft' | 'published' | 'archived';
     organizerId: string;
+    organizationId?: string | null; // Multi-tenant support
     organizerEmail?: string;
     createdAt?: any;
 
@@ -83,6 +84,7 @@ export interface Event {
     capacity?: number;
     price?: number;
     imageUrl?: string;
+    coverImage?: string; // Event cover/thumbnail image
 
     // Microsite (legacy - will migrate to new fields below)
     microsite?: {

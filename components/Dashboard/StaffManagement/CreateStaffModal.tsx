@@ -19,6 +19,7 @@ export default function CreateStaffModal({ organizerId, onClose, onSuccess }: Cr
     const [events, setEvents] = useState<Event[]>([]);
     const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
     const [canViewDetails, setCanViewDetails] = useState(false);
+    const [canSell, setCanSell] = useState(false);
     const [loading, setLoading] = useState(false);
     const [loadingEvents, setLoadingEvents] = useState(true);
 
@@ -78,6 +79,7 @@ export default function CreateStaffModal({ organizerId, onClose, onSuccess }: Cr
                 {
                     canViewAttendeeDetails: canViewDetails,
                     canExportData: false,
+                    canSell: canSell,
                 }
             );
 
@@ -213,8 +215,8 @@ export default function CreateStaffModal({ organizerId, onClose, onSuccess }: Cr
                         <label className="block text-sm font-medium text-gray-700 mb-3">
                             Permisos
                         </label>
-                        <div className="space-y-2">
-                            <label className="flex items-start">
+                        <div className="space-y-4">
+                            <label className="flex items-start cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={canViewDetails}
@@ -227,6 +229,23 @@ export default function CreateStaffModal({ organizerId, onClose, onSuccess }: Cr
                                     </span>
                                     <p className="text-xs text-gray-500">
                                         Si está desactivado, solo podrá validar tickets sin ver información personal
+                                    </p>
+                                </div>
+                            </label>
+
+                            <label className="flex items-start cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={canSell}
+                                    onChange={(e) => setCanSell(e.target.checked)}
+                                    className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                />
+                                <div className="ml-3">
+                                    <span className="text-sm font-medium text-gray-900">
+                                        Acceso a Punto de Venta (POS)
+                                    </span>
+                                    <p className="text-xs text-gray-500">
+                                        Permite vender entradas y cobrar en el evento
                                     </p>
                                 </div>
                             </label>

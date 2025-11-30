@@ -71,55 +71,54 @@ export const VideoPlayer = ({
 
     const embedUrl = getEmbedUrl(url);
 
-    // Alignment logic
-    // If center, we use mx-auto. If left/right, we don't use mx-auto on the container, 
-    // but we might need flex positioning on the parent or specific margins.
-    // Let's use flex on the wrapper to position the content container.
-    const wrapperAlignmentClass = {
-        left: "items-start",
-        center: "items-center",
-        right: "items-end"
-    }[alignment];
+    // Layout Logic:
+    // Center: Stacked (Video Top, Text Bottom), Centered.
+    // Left: Split (Video Left, Text Right).
+    // Right: Split (Video Right, Text Left).
 
-    const textAlignmentClass = {
-        left: "text-left",
-        center: "text-center",
-        right: "text-right"
-    }[alignment];
+    const isSplit = alignment === 'left' || alignment === 'right';
 
     return (
         <section
-            className={`w-full py-12 px-4 flex flex-col ${wrapperAlignmentClass}`}
+            className="w-full py-12 px-4 md:px-12 lg:px-24"
             style={{
                 backgroundColor: backgroundColor || 'transparent',
                 color: textColor || 'inherit'
             }}
         >
-            <div className={`w-full max-w-4xl flex flex-col ${textAlignmentClass}`}>
-                {title && (
-                    <h2 className={`text-3xl font-bold mb-6 ${fontClass}`}>{title}</h2>
-                )}
+            <div className={`w-full max-w-7xl mx-auto flex ${isSplit ? 'flex-col md:flex-row items-center gap-12' : 'flex-col items-center gap-8'}`}>
 
-                {embedUrl ? (
-                    <div key={embedUrl} className="w-full aspect-video rounded-xl overflow-hidden shadow-xl mb-6">
-                        <iframe
-                            src={embedUrl}
-                            className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                        />
-                    </div>
-                ) : (
-                    <div className="w-full aspect-video bg-gray-100 rounded-xl flex items-center justify-center mb-6 border-2 border-dashed border-gray-300">
-                        <p className="text-gray-500">Ingresa una URL de video válida</p>
-                    </div>
-                )}
+                {/* Video Container */}
+                <div className={`w-full ${isSplit ? 'md:w-1/2' : 'max-w-4xl'} ${alignment === 'right' ? 'md:order-2' : ''}`}>
+                    {embedUrl ? (
+                        <div key={embedUrl} className="w-full aspect-video rounded-xl overflow-hidden shadow-xl">
+                            <iframe
+                                src={embedUrl}
+                                className="w-full h-full"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                            />
+                        </div>
+                    ) : (
+                        <div className="w-full aspect-video bg-gray-100 rounded-xl flex items-center justify-center border-2 border-dashed border-gray-300">
+                            <p className="text-gray-500">Ingresa una URL de video válida</p>
+                        </div>
+                    )}
+                </div>
 
-                {description && (
-                    <p className={`text-lg opacity-90 max-w-2xl ${fontClass} ${alignment === 'center' ? 'mx-auto' : ''} ${alignment === 'right' ? 'ml-auto' : ''}`}>
-                        {description}
-                    </p>
-                )}
+                {/* Text Container */}
+                <div className={`w-full ${isSplit ? 'md:w-1/2' : 'max-w-4xl text-center'} ${alignment === 'right' ? 'md:order-1 text-left' : ''} ${alignment === 'left' ? 'text-left' : ''}`}>
+                    {title && (
+                        <h2 className={`text-3xl md:text-4xl font-bold mb-4 ${fontClass}`}>{title}</h2>
+                    )}
+
+                    {description && (
+                        <p className={`text-lg opacity-90 ${fontClass}`}>
+                            {description}
+                        </p>
+                    )}
+                </div>
+
             </div>
         </section>
     );

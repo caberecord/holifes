@@ -1,14 +1,66 @@
 "use client";
 import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { User } from "lucide-react";
+import { User, Camera, Loader2 } from "lucide-react";
 import { showToast } from "@/lib/toast";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { doc, updateDoc } from "firebase/firestore";
+import { updateProfile } from "firebase/auth";
+import { db, storage } from "../../lib/firebase";
 
 export default function ProfileTab() {
     const { user, appUser, updateUserProfile } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
     const [displayName, setDisplayName] = useState(user?.displayName || user?.email?.split('@')[0] || "");
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user) return;
+
+        // Validate file type
+        const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            showToast.error("Por favor selecciona una imagen válida (PNG, JPG, WEBP)");
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            showToast.error("La imagen debe ser menor a 5MB");
+            return;
+        }
+
+        setIsUploadingImage(true);
+        try {
+            const fileExtension = file.name.split('.').pop();
+            const fileName = `profile-${user.uid}-${Date.now()}.${fileExtension}`;
+            const storageRef = ref(storage, `profile-images/${fileName}`);
+
+            // Upload file
+            await uploadBytes(storageRef, file);
+
+            // Get download URL
+            const downloadURL = await getDownloadURL(storageRef);
+
+            // Update Firebase Auth Profile
+            await updateProfile(user, { photoURL: downloadURL });
+
+            // Update Firestore User Document
+            await updateDoc(doc(db, "users", user.uid), { photoURL: downloadURL });
+
+            showToast.success("Foto de perfil actualizada");
+
+            // Force reload to update context and UI
+            window.location.reload();
+        } catch (error: any) {
+            console.error("Error uploading profile image:", error);
+            showToast.error("Error al actualizar la foto de perfil");
+        } finally {
+            setIsUploadingImage(false);
+        }
+    };
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -36,8 +88,30 @@ export default function ProfileTab() {
             <div className="bg-white/80 backdrop-blur-md border border-gray-200 rounded-2xl p-6 shadow-sm">
                 {/* Avatar Section */}
                 <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200">
-                    <div className="h-20 w-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl font-bold text-white">
-                        {user?.email?.charAt(0).toUpperCase() || "U"}
+                    <div className="relative group">
+                        <div className="h-20 w-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl font-bold text-white overflow-hidden">
+                            {user?.photoURL ? (
+                                <img src={user.photoURL} alt="Profile" className="h-full w-full object-cover" />
+                            ) : (
+                                user?.email?.charAt(0).toUpperCase() || "U"
+                            )}
+                        </div>
+
+                        {/* Upload Overlay */}
+                        <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity duration-200">
+                            <input
+                                type="file"
+                                className="hidden"
+                                accept="image/png, image/jpeg, image/jpg, image/webp"
+                                onChange={handleImageUpload}
+                                disabled={isUploadingImage}
+                            />
+                            {isUploadingImage ? (
+                                <Loader2 className="w-6 h-6 text-white animate-spin" />
+                            ) : (
+                                <Camera className="w-6 h-6 text-white" />
+                            )}
+                        </label>
                     </div>
                     <div>
                         <h3 className="text-lg font-semibold text-gray-900">

@@ -1,0 +1,407 @@
+﻿Plan Estratégico de Implementación Técnica: Integración del Ecosistema de Facturación Electrónica Alegra en la Plataforma Holifes
+
+
+
+
+Resumen Ejecutivo
+
+
+Este documento constituye un plan de trabajo exhaustivo y un análisis técnico profundo diseñado para la implementación de la API de Alegra dentro de la arquitectura tecnológica de "Holifes", una aplicación web de gestión de eventos construida sobre el stack moderno de Next.js, Firebase y Vercel. El objetivo principal es dotar a la plataforma de capacidades robustas de facturación electrónica, emisión de comprobantes de pago y gestión de notas de crédito, automatizando el cumplimiento fiscal en el punto de venta (POS) de boletería.
+La integración de sistemas de planificación de recursos empresariales (ERP) y facturación electrónica en entornos de comercio electrónico de alta concurrencia, como la venta de entradas para eventos, presenta desafíos arquitectónicos significativos. Estos incluyen la necesidad de mantener la consistencia transaccional entre el gateway de pagos y el ente fiscalizador, la gestión de la latencia en procesos de validación gubernamental asíncronos y la seguridad en el manejo de credenciales sensibles. Este informe aborda estos desafíos mediante una arquitectura de Backend-for-Frontend (BFF) utilizando las capacidades serverless de Vercel y la base de datos en tiempo real de Firebase.
+El alcance de este proyecto no se limita a la simple conexión de endpoints; abarca la totalidad del ciclo de vida del documento tributario, desde la identificación del adquiriente y la validación de sus datos fiscales, pasando por la emisión y timbrado de la factura ante la autoridad competente (DIAN en el contexto de los snippets proporcionados para Colombia), hasta la conciliación de pagos y la gestión de devoluciones mediante notas de crédito.1 A través de este análisis, se proporcionará una hoja de ruta detallada que garantiza no solo la funcionalidad técnica, sino también la escalabilidad, la seguridad y el cumplimiento normativo estricto.
+________________
+
+
+1. Arquitectura del Sistema y Estrategia de Integración
+
+
+La arquitectura propuesta para la integración de Alegra en Holifes se fundamenta en los principios de desacoplamiento, seguridad y escalabilidad serverless. Dado que Holifes opera sobre Next.js y Vercel, es imperativo diseñar una solución que respete los límites de ejecución de las funciones lambda y aproveche la naturaleza asíncrona de los eventos de facturación.
+
+
+1.1 Diseño de Backend-for-Frontend (BFF) en Next.js
+
+
+La comunicación directa entre el cliente (navegador del usuario) y la API de Alegra representa un riesgo de seguridad inaceptable, ya que expondría las credenciales de autenticación (tokens y correos de usuario) al público. Por lo tanto, se establece una capa de intermediación obligatoria utilizando Next.js API Routes.
+Esta capa BFF actuará como un proxy seguro y orquestador de lógica de negocio. Sus responsabilidades incluyen:
+1. Custodia de Credenciales: Almacenamiento seguro de las variables de entorno ALEGRA_USER y ALEGRA_TOKEN en el servidor de Vercel, inaccesibles para el cliente.3
+2. Transformación de Datos: Conversión de los objetos de pedido de Holifes (Tickets, Eventos) al esquema estricto de ítems y facturas requerido por Alegra.2
+3. Manejo de Errores y Reintentos: Implementación de lógica de "retry" exponencial para manejar límites de tasa (rate limits) o indisponibilidad temporal de la API de Alegra.
+4. Validación Previa: Verificación de la integridad de los datos fiscales del usuario antes de enviarlos a Alegra, reduciendo el ruido y los errores 400 Bad Request.
+
+
+1.2 Persistencia y Estado en Firebase (Firestore)
+
+
+Firebase Firestore servirá como la fuente de verdad para el estado de la facturación. A diferencia de una base de datos SQL tradicional, la naturaleza documental de Firestore permite almacenar la respuesta completa (payload JSON) de Alegra, incluyendo los enlaces a los XML y PDF generados, así como los logs de auditoría de cada transacción.
+Se propone la extensión del modelo de datos de orders (pedidos) para incluir sub-colecciones o campos dedicados a la facturación:
+* billing_status: Estado interno (ej. PENDING, EMITTED, REJECTED, SYNCED).
+* alegra_invoice_id: Identificador único de la factura en el sistema de Alegra.
+* alegra_contact_id: ID del cliente en la base de datos de Alegra.
+* fiscal_doc_url: Enlace al PDF de la factura legal.
+* rejection_reason: Campo para almacenar mensajes de error en caso de rechazo por parte de la DIAN o Alegra.4
+
+
+1.3 Diagrama de Flujo de Datos Transaccional
+
+
+El flujo de información debe garantizar que no se emita una factura sin un pago confirmado, y que todo pago confirmado intente generar una factura.
+
+
+Paso
+	Actor
+	Acción
+	Descripción Técnica
+	1
+	Usuario
+	Compra
+	El usuario completa el pago en el Gateway (ej. Stripe/PayU).
+	2
+	Webhook Gateway
+	Confirmación
+	Holifes recibe la confirmación de pago exitoso.
+	3
+	Holifes (Server)
+	Sincronización
+	Se ejecuta syncContactWithAlegra para asegurar que el usuario existe en el ERP.5
+	4
+	Holifes (Server)
+	Emisión
+	Se construye el payload y se envía a POST /e-provider/col/v1/invoices.2
+	5
+	Alegra API
+	Validación
+	Alegra recibe, valida sintaxis y reenvía a la DIAN (Async).
+	6
+	Holifes (Server)
+	Registro Pago
+	Se asocia el ingreso a la factura usando POST /api/v1/payments.6
+	7
+	Webhook Alegra
+	Notificación
+	Alegra notifica a Holifes (emissionFinished) el resultado final de la DIAN.4
+	8
+	Firebase
+	Actualización
+	Se actualiza el documento con el XML/PDF final.
+	Este diseño asíncrono en los pasos 5-8 es crucial. La validación fiscal no es instantánea; puede tomar desde milisegundos hasta minutos. Holifes no debe bloquear la interfaz de usuario esperando esta respuesta.
+________________
+
+
+2. Configuración y Pre-requisitos Normativos (Fase 0)
+
+
+Antes de escribir la primera línea de código, es fundamental comprender y configurar el entorno normativo. La facturación electrónica en Colombia (y en gran parte de Latinoamérica) es un proceso regulado que requiere habilitación previa. Omitir estos pasos resultará en errores de autorización al consumir la API.7
+
+
+2.1 Proceso de Habilitación ante la DIAN
+
+
+El entorno de producción de Alegra no permitirá emitir facturas legales hasta que la empresa "Holifes" (o la entidad legal que representa) haya completado el proceso de habilitación oficial. Alegra actúa como el proveedor tecnológico puente.
+1. Registro en el Portal DIAN: La empresa debe ingresar al sistema Muisca de la DIAN y seleccionarse como "Facturador Electrónico".
+2. Asociación de Proveedor Tecnológico: Se debe seleccionar a "Soluciones Alegra S.A.S." como el proveedor de software autorizado. Esto genera un TestSetId (Identificador del Set de Pruebas).2
+3. Ejecución del Set de Pruebas: La DIAN exige el envío de una batería de facturas de prueba (normalmente facturas de venta, notas crédito y débito) para certificar que el software se comunica correctamente.
+   * Integración Técnica: Alegra provee un endpoint específico para automatizar esto. Holifes deberá crear un script temporal que consuma el endpoint de pruebas utilizando el TestSetId proporcionado por la DIAN. Esto es un requisito bloqueante para pasar a producción.2
+
+
+2.2 Gestión de Resoluciones de Facturación
+
+
+A diferencia de las facturas tradicionales, la facturación electrónica requiere una resolución de numeración autorizada específicamente para este fin.
+* Configuración en Alegra: Una vez obtenida la resolución en la DIAN (con su prefijo, rango numérico y clave técnica), esta debe registrarse dentro de la configuración de la cuenta de Alegra.
+* Importancia en la API: Al momento de construir el payload de la factura en el código de Holifes, se deberá enviar el objeto resolution con los datos exactos autorizados. Si Holifes envía un número de factura que no corresponde al rango o a la clave técnica (technicalKey) configurada, la DIAN rechazará el documento inmediatamente.2
+* Recomendación: Almacenar estos valores de configuración (Prefijo, Clave Técnica, Número Actual) en una colección de configuración en Firebase (config/billing) para poder actualizarlos sin re-desplegar el código cuando la resolución venza (generalmente cada 6 a 24 meses).
+________________
+
+
+3. Autenticación y Seguridad de la API
+
+
+El mecanismo de autenticación es la puerta de entrada al sistema contable. Su implementación debe ser impecable para evitar accesos no autorizados.
+
+
+3.1 Implementación de Basic Auth
+
+
+Alegra utiliza el esquema de autenticación HTTP Basic. Esto implica que cada petición debe incluir un encabezado Authorization construido a partir del correo electrónico del usuario y su token de API.1
+Mecanismo de Construcción:
+La cadena de credenciales debe seguir el formato correo:token. Esta cadena debe ser codificada en Base64.
+* Formato: Basic {Base64_String}
+* Ejemplo Conceptual: Si el usuario es admin@holifes.com y el token es api_token_123, la cadena a codificar es admin@holifes.com:api_token_123.
+Implementación en Next.js (Node.js Environment):
+En el entorno de servidor de Next.js, se debe utilizar el objeto Buffer nativo para realizar esta codificación de manera eficiente y segura.
+
+
+JavaScript
+
+
+
+
+const authHeader = `Basic ${Buffer.from(`${process.env.ALEGRA_EMAIL}:${process.env.ALEGRA_TOKEN}`).toString('base64')}`;
+
+Este método es preferible a librerías externas por rendimiento y seguridad. Es crucial que estas variables de entorno se inyecten en tiempo de ejecución en Vercel y nunca se confirmen en el repositorio de código (git).1
+
+
+3.2 Gestión de Secretos y Rotación
+
+
+Aunque los tokens de Alegra suelen ser estáticos (no expiran como un OAuth access token de corta duración), se debe establecer un protocolo de rotación de credenciales.
+* Almacenamiento: Uso de Vercel Environment Variables (Encriptadas en reposo).
+* Acceso: Restringido solo al entorno de producción y preview, nunca development local con credenciales reales de producción.
+* Sandbox: Se deben mantener juegos de credenciales totalmente separados para el entorno de Sandbox (sandbox-api.alegra.com) y Producción (api.alegra.com). El código de Holifes debe ser agnóstico al entorno, seleccionando la URL base y las credenciales según la variable NODE_ENV o NEXT_PUBLIC_ENV.8
+________________
+
+
+4. Gestión de Contactos (Terceros)
+
+
+Para que Alegra pueda emitir una factura, esta debe estar asociada obligatoriamente a un "Contacto" (Cliente) existente en su base de datos. Esto implica que Holifes debe sincronizar su base de usuarios con Alegra.5
+
+
+4.1 Estrategia de "Buscar o Crear" (Find-or-Create)
+
+
+No es viable asumir que el usuario ya existe, ni tampoco intentar crearlo siempre (lo que generaría duplicados o errores). Se debe implementar un patrón idempotente.
+1. Consulta: Antes de facturar, Holifes consulta a la API de Alegra filtrando por el número de identificación (NIT/Cédula) del usuario.9
+   * Endpoint: GET /api/v1/contacts?identification={user_tax_id}
+2. Decisión:
+   * Si existe: Alegra devuelve un objeto con el id interno. Holifes toma este ID y procede a facturar. Opcionalmente, si los datos en Holifes son más recientes (ej. nueva dirección), se lanza una petición PUT para actualizar el contacto.
+   * Si no existe: Alegra devuelve un array vacío. Holifes procede a crear el contacto.
+
+
+4.2 Mapeo de Atributos y Validación Fiscal
+
+
+La creación del contacto (POST /api/v1/contacts) requiere datos estrictos que Holifes debe recolectar en el formulario de checkout.
+Tabla de Mapeo de Datos:
+
+
+Campo Holifes
+	Campo Alegra
+	Requisito / Validación
+	nombre_completo
+	name
+	Obligatorio. Razón social o Nombre.
+	numero_documento
+	identification
+	Obligatorio. Validar formato y dígito de verificación (DV) para NITs.
+	email
+	email
+	Obligatorio para envío automático de factura.
+	direccion
+	address.address
+	Obligatorio para facturación electrónica.
+	telefono
+	phonePrimary
+	Opcional, pero recomendado.
+	tipo_persona
+	kindOfPerson
+	PERSON_ENTITY (Natural) o LEGAL_ENTITY (Jurídica).10
+	regimen
+	regime
+	SIMPLIFIED_REGIME o COMMON_REGIME (Resp. IVA).10
+	Consideración sobre el Dígito de Verificación (DV):
+En Colombia, los NITs de empresas tienen un dígito de verificación calculado por algoritmo (Módulo 11). Alegra valida esto. Si Holifes envía un NIT con un DV incorrecto, la API rechazará la creación. Se recomienda implementar una función de utilidad en Holifes (utils/calculateDV.js) para validar o calcular este dígito en el frontend antes de enviar los datos, mejorando la experiencia de usuario y reduciendo fallos de API.2
+________________
+
+
+5. Implementación de Facturación Electrónica
+
+
+Este es el núcleo funcional del proyecto. La emisión de la factura electrónica es un proceso delicado que involucra la construcción de un payload JSON complejo y conforme a los estándares UBL (Universal Business Language) adaptados por la DIAN.
+
+
+5.1 Endpoint y Estructura del Payload
+
+
+Para facturación electrónica en Colombia, se debe utilizar el endpoint especializado /e-provider/col/v1/invoices en lugar del endpoint genérico de facturas.2 Este endpoint activa las validaciones fiscales específicas del país.
+Componentes Críticos del Payload:
+1. company (Emisor): Datos completos de Holifes/Organizador. Deben coincidir con el RUT.
+2. customer (Receptor): Datos del contacto obtenidos en la fase anterior.
+3. items (Detalle de la Transacción):
+   * Cada ticket vendido corresponde a un ítem.
+   * Impuestos (tax): Este es un punto crítico. Los eventos pueden estar gravados con IVA (19%), ser exentos o excluidos. Alegra requiere que se envíe el id del impuesto configurado en su sistema.
+   * Estrategia: Crear una colección taxes en Firestore que mapee los tipos de impuestos de Holifes con los IDs numéricos de impuestos en Alegra (ej. IVA 19% = ID 3).
+4. paymentMeans (Medios de Pago):
+   * La DIAN exige saber cómo se pagará la factura.
+   * Para ventas POS online, generalmente es "Contado".
+   * Se debe especificar el código del medio de pago (ej. 41 para Tarjeta de Crédito, 1 para Efectivo/Instrumento no definido).
+5. resolution: El objeto de resolución mencionado en la sección 2.2, incluyendo prefix, resolutionNumber y technicalKey.2
+
+
+5.2 Manejo de la Asincronía y Estados
+
+
+La respuesta inmediata de Alegra (200 OK o 201 Created) al enviar la factura no implica validez fiscal. Solo indica que Alegra recibió la solicitud y la procesará.
+Estados del Documento:
+* REGISTERED: Recibido por Alegra, en cola de procesamiento.
+* WAITING_RESPONSE: Enviado a la DIAN, esperando respuesta.
+* ACCEPTED: Aprobado por la DIAN (Factura válida).
+* REJECTED: Rechazado por la DIAN (Error fiscal, ej. NIT cancelado).
+* FAILED: Error técnico interno de Alegra.
+Holifes debe ser capaz de manejar esta incertidumbre temporal. La interfaz de usuario no debe mostrar "Factura Generada" hasta que se reciba la confirmación de aceptación. Mientras tanto, el estado debe ser "Procesando Factura" o "Validación Fiscal en Curso".
+________________
+
+
+6. Conciliación de Pagos (Tesorería)
+
+
+Una factura electrónica emitida por defecto queda en estado "Por Cobrar" (Open). Dado que en Holifes la factura se emite después de que el usuario pagó en la pasarela, es imperativo registrar ese pago inmediatamente para cerrar la factura y no generar una cuenta por cobrar errónea en la contabilidad.6
+
+
+6.1 Endpoint de Pagos
+
+
+Se utiliza el endpoint POST /api/v1/payments.
+Datos Requeridos:
+* date: Fecha real de la transacción (puede diferir ligeramente de la fecha de factura si hay latencia).
+* bankAccount: ID de la cuenta contable en Alegra donde entra el dinero.
+   * Configuración: Se debe configurar en Holifes a qué cuenta de banco de Alegra (ej. "Cuenta Stripe", "Banco Davivienda") debe ir el dinero. Esto puede ser un parámetro global o específico por evento si cada evento tiene cuentas diferentes.
+* paymentMethod: Método de pago (Transferencia, Efectivo, Tarjeta).
+* invoices: Array vinculante.
+   * Se debe enviar el id de la factura recién creada y el amount (monto) aplicado. Esto permite pagos parciales, aunque en tickets suele ser pago total.11
+
+
+6.2 Estrategia de Atomicidad
+
+
+Existe el riesgo de que la factura se cree pero el pago falle al registrarse (ej. timeout de red), dejando la factura "abierta".
+* Solución: Implementar un "Worker" o tarea programada en Firebase Functions que busque facturas en estado ACCEPTED en Firestore que no tengan un pago asociado en los últimos 5 minutos, y reintente el registro del pago en Alegra. Esto asegura la consistencia eventual de la contabilidad.
+________________
+
+
+7. Gestión de Notas de Crédito y Devoluciones
+
+
+En el negocio de eventos, las cancelaciones y devoluciones son comunes. Fiscalmente, no se puede simplemente "borrar" una factura electrónica; se debe emitir una Nota de Crédito Electrónica que anule los efectos de la factura original.8
+
+
+7.1 Flujo de Anulación
+
+
+Cuando un administrador en Holifes aprueba un reembolso:
+1. El sistema procesa la devolución del dinero en la pasarela de pagos.
+2. Si la orden ya tenía factura electrónica ACCEPTED, se desencadena el proceso de Nota de Crédito.
+3. Se consume el endpoint POST /e-provider/col/v1/credit-notes.12
+
+
+7.2 Vinculación Fiscal
+
+
+El payload de la nota de crédito debe incluir obligatoriamente la referencia a la factura padre.
+* Objeto creditNoteReference: Debe contener el id (UUID o número) de la factura original.
+* Concepto: Se debe especificar el motivo de la anulación (ej. "Devolución de parte de los bienes" o "Anulación de factura electrónica") usando los códigos estandarizados.8
+________________
+
+
+8. Arquitectura Orientada a Eventos (Webhooks)
+
+
+Para cerrar el ciclo de información sin saturar la API con consultas constantes (polling), se implementarán Webhooks. Esto permite que Alegra "avise" a Holifes cuando algo importante ocurra.
+
+
+8.1 Configuración de Suscripción
+
+
+Se debe registrar una URL de Holifes (ej. https://api.holifes.com/webhooks/alegra) para escuchar eventos específicos.
+* Evento Principal: invoices.emissionFinished. Este evento se dispara cuando la DIAN responde a Alegra (sea aceptación o rechazo).4
+
+
+8.2 Seguridad del Webhook
+
+
+Dado que es un endpoint público, se deben tomar medidas de seguridad:
+* Verificación de Origen: Alegra permite configurar headers personalizados en la suscripción del webhook. Holifes debe configurar un token secreto (ej. X-Alegra-Hmac) y validarlo en el receptor del webhook para descartar peticiones maliciosas.4
+* Idempotencia: Es posible que Alegra envíe el mismo webhook dos veces por error de red. El código de Holifes debe verificar si el estado ya fue actualizado en Firestore antes de procesarlo nuevamente.
+
+
+8.3 Procesamiento del Payload
+
+
+Al recibir el webhook:
+1. Holifes extrae el ID de la factura y el nuevo estado.
+2. Busca la orden correspondiente en Firestore.
+3. Si el estado es ACCEPTED, descarga o guarda las URLs del XML y PDF oficial provistos en el payload.
+4. Dispara notificaciones al usuario (Email/Push) informando que su factura está lista.
+5. Si el estado es REJECTED, registra el motivo del error en la base de datos y alerta al equipo de soporte de Holifes para corrección manual.
+________________
+
+
+9. Plan de Trabajo e Hitos
+
+
+A continuación, se presenta un cronograma estructurado para la implementación.
+Fase
+	Hito
+	Tareas Principales
+	Duración Est.
+	1
+	Preparación
+	Habilitación DIAN, Configuración de Resolución, Setup Vercel Envs.
+	1 Semana
+	2
+	Core Backend
+	Desarrollo de cliente API (Auth, Retry Logic), Mapeo de Contactos.
+	2 Semanas
+	3
+	Facturación
+	Implementación de CreateInvoice y validación de payloads JSON.
+	2 Semanas
+	4
+	Pagos y NC
+	Implementación de registro de Pagos y Notas de Crédito.
+	1.5 Semanas
+	5
+	Webhooks
+	Desarrollo de listeners, seguridad y actualización de Firestore.
+	1 Semana
+	6
+	QA & Sandbox
+	Pruebas integrales, simulación de errores, validación de montos.
+	1.5 Semanas
+	7
+	Despliegue
+	Paso a Producción, Monitoreo inicial, Rotación de claves.
+	1 Semana
+	________________
+
+
+10. Consideraciones de Escalabilidad y Límites
+
+
+
+
+10.1 Rate Limiting y "Thundering Herd"
+
+
+Durante la venta de entradas para un evento masivo ("Sold Out" en minutos), Holifes podría procesar miles de transacciones por minuto. Intentar crear miles de facturas simultáneamente en Alegra provocará errores de límite de tasa (429 Too Many Requests) o timeouts.
+Estrategia de Desacoplamiento (Queueing):
+Se recomienda encarecidamente no realizar la llamada a Alegra de forma síncrona durante el proceso de checkout del usuario.
+* Diseño: Cuando el usuario paga, Holifes guarda la orden en Firestore con estado billing_pending.
+* Procesamiento: Utilizar una Cloud Function de Firebase (disparada por la creación del documento) o una cola de mensajes (Google Cloud Tasks) para procesar la facturación en segundo plano. Esto permite controlar la concurrencia y reintentar fallos sin afectar la experiencia de compra del usuario.
+
+
+10.2 Límites de Ejecución Serverless
+
+
+Las funciones de Vercel (versión Pro) tienen un tiempo límite de ejecución (ej. 10 o 60 segundos). La llamada a Alegra puede ser lenta.
+* Solución: Utilizar siempre el patrón asíncrono. Enviar la factura, guardar el ID y terminar la función. No esperar a la respuesta de la DIAN dentro de la misma función serverless. Confiar en el Webhook para la confirmación final.
+________________
+
+
+Conclusión
+
+
+La integración de la API de Alegra en Holifes es un proyecto estratégico que eleva la madurez operativa de la plataforma. Al seguir esta arquitectura de Backend-for-Frontend, apoyada en la robustez de Firebase y la agilidad de Next.js, Holifes podrá ofrecer una experiencia de facturación transparente y confiable. El éxito de la implementación dependerá en gran medida del manejo meticuloso de los estados asíncronos de la facturación electrónica y de una estrategia de seguridad defensiva en el manejo de credenciales y datos fiscales.
+Fuentes citadas
+1. Información General - Alegra API Documentation, acceso: noviembre 26, 2025, https://developer.alegra.com/docs/informaci%C3%B3n-general
+2. Endpoint para emitir una factura electrónica a la DIAN, acceso: noviembre 26, 2025, https://e-provider-docs.alegra.com/reference/createinvoice
+3. Alegra - Apps Documentation - Make, acceso: noviembre 26, 2025, https://apps.make.com/alegra
+4. Webhooks - API Alegra Proveedor electrónico, acceso: noviembre 26, 2025, https://e-provider-docs.alegra.com/docs/webhooks
+5. Crear un contacto - Alegra API Documentation, acceso: noviembre 26, 2025, https://developer.alegra.com/reference/post_contacts
+6. Crear un nuevo pago - Alegra API Documentation, acceso: noviembre 26, 2025, https://developer.alegra.com/reference/post_payments
+7. How to integrate with Alegra - Hotmart Help Center, acceso: noviembre 26, 2025, https://help.hotmart.com/en/article/22487640801165/how-to-integrate-with-alegra
+8. Endpoint para emitir una nota crédito electrónica a la DIAN, acceso: noviembre 26, 2025, https://e-provider-docs.alegra.com/reference/createcreditnote
+9. Create Contact with Alegra API on New Stars from GitHub API - Pipedream, acceso: noviembre 26, 2025, https://pipedream.com/apps/github/integrations/alegra/create-contact-with-alegra-api-on-new-stars-from-github-api-int_0GsVN67A
+10. Crear factura de venta - Alegra API Documentation, acceso: noviembre 26, 2025, https://developer.alegra.com/reference/post_invoices
+11. Linking Payment to Invoice through API - Help - Intuit, acceso: noviembre 26, 2025, https://help.developer.intuit.com/s/question/0D54R00007Ot7ZXSAZ/linking-payment-to-invoice-through-api
+12. Crear nota de crédito - Alegra API Documentation, acceso: noviembre 26, 2025, https://developer.alegra.com/reference/post_credit-notes

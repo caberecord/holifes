@@ -39,51 +39,65 @@ export default function EventHeader({ event }: EventHeaderProps) {
     const isPublished = event.status === 'published';
 
     return (
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900">{event.name}</h1>
-                <div className="flex items-center gap-2 mt-1">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${event.status === 'published' ? 'bg-green-100 text-green-800' :
-                        event.status === 'draft' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                        {event.status === 'published' ? 'Publicado' : event.status === 'draft' ? 'En Construcción' : event.status}
-                    </span>
-                    <span className="text-sm text-gray-500 flex items-center">
-                        ID: {event.id}
-                    </span>
+        <>
+            {/* Cover Image Banner */}
+            {event.coverImage && (
+                <div className="relative h-48 overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800">
+                    <img
+                        src={event.coverImage}
+                        alt={event.name}
+                        className="w-full h-full object-cover opacity-80"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 </div>
-            </div>
-            <div className="flex gap-3">
-                <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                    <Eye className="w-4 h-4 mr-2" />
-                    Previsualizar
-                </button>
-                <button
-                    onClick={handlePublish}
-                    disabled={isPublished || isPublishing}
-                    className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isPublished
+            )}
+
+            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">{event.name}</h1>
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${event.status === 'published' ? 'bg-green-100 text-green-800' :
+                            event.status === 'draft' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                            {event.status === 'published' ? 'Publicado' : event.status === 'draft' ? 'En Construcción' : event.status}
+                        </span>
+                        <span className="text-sm text-gray-500 flex items-center">
+                            ID: {event.id}
+                        </span>
+                    </div>
+                </div>
+                <div className="flex gap-3">
+                    <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                        <Eye className="w-4 h-4 mr-2" />
+                        Previsualizar
+                    </button>
+                    <button
+                        onClick={handlePublish}
+                        disabled={isPublished || isPublishing}
+                        className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isPublished
                             ? "bg-green-100 text-green-700 cursor-default"
                             : "bg-indigo-600 text-white hover:bg-indigo-700"
-                        }`}
-                >
-                    {isPublishing ? (
-                        <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Publicando...
-                        </>
-                    ) : isPublished ? (
-                        <>
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Publicado
-                        </>
-                    ) : (
-                        <>
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            Publicar Evento
-                        </>
-                    )}
-                </button>
+                            }`}
+                    >
+                        {isPublishing ? (
+                            <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Publicando...
+                            </>
+                        ) : isPublished ? (
+                            <>
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Publicado
+                            </>
+                        ) : (
+                            <>
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                Publicar Evento
+                            </>
+                        )}
+                    </button>
+                </div>
             </div>
-        </div>
+        </>
     );
 }

@@ -1,9 +1,12 @@
 "use client";
+import { useState } from "react";
 import { useEventWizardStore } from "@/store/eventWizardStore";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Calendar, Clock, MapPin, Type, AlignLeft, Link as LinkIcon, Tag, Map } from "lucide-react";
+import { Calendar, Clock, MapPin, Type, AlignLeft, Link as LinkIcon, Tag, Map, Upload, X, Loader2 } from "lucide-react";
+import { storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const schema = z.object({
     name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
@@ -21,6 +24,8 @@ type FormData = z.infer<typeof schema>;
 
 export default function Step1BasicInfo() {
     const { basicInfo, updateBasicInfo, setStep } = useEventWizardStore();
+    const [coverImage, setCoverImage] = useState<string | undefined>(basicInfo.coverImage);
+    const [uploading, setUploading] = useState(false);
 
     const {
         register,
@@ -31,8 +36,40 @@ export default function Step1BasicInfo() {
         defaultValues: basicInfo,
     });
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            alert("La imagen no debe superar 10MB");
+            return;
+        }
+
+        setUploading(true);
+        try {
+            const timestamp = Date.now();
+            const filename = `event-covers/${timestamp}_${file.name}`;
+            const storageRef = ref(storage, filename);
+
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+
+            setCoverImage(downloadURL);
+        } catch (error) {
+            console.error("Error uploading image:", error);
+            alert("Error al subir la imagen");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleRemoveImage = () => {
+        setCoverImage(undefined);
+    };
+
     const onSubmit = (data: FormData) => {
-        updateBasicInfo(data);
+        updateBasicInfo({ ...data, coverImage });
         setStep(2);
     };
 
@@ -68,6 +105,60 @@ export default function Step1BasicInfo() {
                                 </p>
                             )}
                         </div>
+                    </div>
+
+                    {/* Cover Image Upload */}
+                    <div className="relative group">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Portada del Evento <span className="text-gray-400 text-xs">(opcional)</span>
+                        </label>
+                        {!coverImage ? (
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    disabled={uploading}
+                                    className="hidden"
+                                    id="cover-upload"
+                                />
+                                <label
+                                    htmlFor="cover-upload"
+                                    className={`flex flex-col items-center justify-center w-full h-48 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    {uploading ? (
+                                        <>
+                                            <Loader2 className="h-10 w-10 text-indigo-500 animate-spin mb-3" />
+                                            <p className="text-sm text-gray-500">Subiendo imagen...</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Upload className="h-10 w-10 text-gray-400 mb-3" />
+                                            <p className="text-sm font-medium text-gray-700">Haz clic o arrastra para subir</p>
+                                            <p className="text-xs text-gray-500 mt-1">PNG, JPG hasta 10MB</p>
+                                        </>
+                                    )}
+                                </label>
+                            </div>
+                        ) : (
+                            <div className="relative group/image">
+                                <img
+                                    src={coverImage}
+                                    alt="Event Cover"
+                                    className="w-full h-48 object-cover rounded-xl border-2 border-gray-200"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleRemoveImage}
+                                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover/image:opacity-100 transition-opacity hover:bg-red-600"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-2">
+                            Esta imagen se mostrará en las métricas del evento y en el punto de venta.
+                        </p>
                     </div>
 
                     {/* Fecha y Horas */}

@@ -90,7 +90,19 @@ export interface CompanyData {
     vatRate: number;                // Tarifa de IVA (%)
     taxRegime: TaxRegime;           // Régimen fiscal
 
+    // Integrations
+    alegra?: AlegraConfig;
+
     // Metadata
     createdAt: Date;
     updatedAt: Date;
+}
+
+export interface AlegraConfig {
+    isConnected: boolean;
+    email: string;
+    token: string;          // Stored securely (or masked in UI)
+    isSandbox: boolean;
+    bankAccountId?: number; // ID de la cuenta de banco en Alegra
+    warehouseId?: number;   // ID de la bodega (opcional)
 }

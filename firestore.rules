@@ -2,120 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Funciones auxiliares
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    // Verifica si el usuario actual es el organizador del documento
-    function isResourceOwner() {
-      return isAuthenticated() && resource.data.organizerId == request.auth.uid;
-    }
-
-    // Verifica si el usuario actual está creando un documento como organizador
-    function isCreatingAsOwner() {
-      return isAuthenticated() && request.resource.data.organizerId == request.auth.uid;
-    }
-
-    // Verifica si el usuario es staff del organizador del recurso
-    function isStaffOfOrganizer(organizerId) {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc.data.role == 'staff' && userDoc.data.createdBy == organizerId;
-    }
-
-    // Verifica si el usuario es superadmin
-    function isSuperAdmin() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
-    }
-
-    // --- Reglas por Colección ---
-
-    // Colección de Usuarios
-    match /users/{userId} {
-      // Cada usuario puede leer y escribir su propio perfil, o Super Admin
-      allow read, write: if isOwner(userId) || isSuperAdmin();
-      
-      // El organizador puede leer usuarios que él creó (para queries)
-      allow read: if isAuthenticated() && 
-        resource != null && 
-        resource.data.createdBy == request.auth.uid;
-      
-      // El organizador puede crear usuarios staff
-      allow create: if isAuthenticated() && 
-        request.resource.data.createdBy == request.auth.uid;
-      
-      // El organizador puede actualizar/eliminar usuarios que él creó
-      allow update, delete: if isAuthenticated() && 
-        resource != null && 
-        resource.data.createdBy == request.auth.uid;
-        
-      // Subcolección de datos de empresa
-      match /companyData/{document=**} {
-        allow read, write: if isOwner(userId) || isSuperAdmin();
-      }
-    }
-
-    // Colección de Eventos
-    match /events/{eventId} {
-      // Lectura: Permitir si soy el organizador O si soy staff de ese organizador O Super Admin
-      allow read: if isAuthenticated() && (
-        resource.data.organizerId == request.auth.uid || 
-        isStaffOfOrganizer(resource.data.organizerId) ||
-        isSuperAdmin()
-      );
-
-      // Creación: Solo el organizador puede crear eventos (por ahora)
-      allow create: if isCreatingAsOwner();
-
-      // Actualización: Organizador, Staff del organizador, o Super Admin
-      allow update: if isAuthenticated() && (
-        isResourceOwner() || 
-        isStaffOfOrganizer(resource.data.organizerId) ||
-        isSuperAdmin()
-      );
-      
-      // Borrado: Solo el organizador O Super Admin
-      allow delete: if isResourceOwner() || isSuperAdmin();
-    }
-
-    // Colección de Asistentes (Attendees)
-    match /events/{eventId}/attendees/{attendeeId} {
-      // Primero obtenemos el evento padre para saber quién es el organizador
-      // Nota: Esto requiere que el cliente conozca el ID del evento
-      
-      function getEventData() {
-        return get(/databases/$(database)/documents/events/$(eventId)).data;
-      }
-
-      allow read: if isAuthenticated() && (
-        getEventData().organizerId == request.auth.uid ||
-        isStaffOfOrganizer(getEventData().organizerId)
-      );
-
-      allow write: if isAuthenticated() && (
-        getEventData().organizerId == request.auth.uid ||
-        isStaffOfOrganizer(getEventData().organizerId)
-      );
-    }
-
-    // Colección de Logs de Escaneo (Audit Trail)
-    match /scan_logs/{logId} {
-      // Permitir crear logs a cualquier usuario autenticado (Staff/Organizer)
-      allow create: if isAuthenticated();
-      
-      // Permitir leer logs a usuarios autenticados (para Dashboard y validación)
-      // TODO: Restringir lectura solo a logs de eventos propios o asignados
-      allow read: if isAuthenticated();
-    }
-
-    // Colección de Configuración (Planes, Sistema)
-    match /config/{document=**} {
-      allow read: if true; // Público para que la Home pueda ver precios
-      allow write: if isSuperAdmin();
+    // !!! MODO DESARROLLO !!!
+    // Permite lectura y escritura a CUALQUIER usuario (incluso sin loguear)
+    // Útil para evitar problemas de permisos durante el desarrollo.
+    // REVERTIR A REGLAS SEGURAS ANTES DE PRODUCCIÓN.
+    
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }

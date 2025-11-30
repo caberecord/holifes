@@ -32,6 +32,7 @@ export interface WizardState {
         category: string;
         description: string;
         address: string;
+        coverImage?: string;
     };
     // Step 2: Plan
     selectedPlan: EventPlan | null;

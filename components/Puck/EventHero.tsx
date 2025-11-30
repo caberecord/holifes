@@ -87,15 +87,20 @@ export const EventHero = ({
     const formatDate = (dateString?: string) => {
         if (!dateString) return null;
         const date = new Date(dateString);
-        return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+        // Fix: Use UTC timezone to prevent off-by-one error due to local timezone shift
+        return date.toLocaleDateString('es-ES', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            timeZone: 'UTC'
+        });
     };
 
     // Use event date, fallback only if event is missing (e.g. editor preview without context)
     // If event exists but has no date, show "Fecha por definir"
-    // If event is undefined (editor), show a placeholder date ONLY if we want to preview it, 
-    // but user requested to show DB date. 
-    // Logic: If event.startDate exists, use it. If not, show "Fecha por definir".
-    const displayDate = event?.startDate ? formatDate(event.startDate) : "Fecha por definir";
+    // Logic: Check startDate (ISO) first, then date (Legacy/Basic).
+    const rawDate = event?.startDate || event?.date;
+    const displayDate = rawDate ? formatDate(rawDate) : "Fecha por definir";
 
     // Layout Content Components
     const TitleSection = () => (
@@ -130,8 +135,8 @@ export const EventHero = ({
 
             <div className="flex flex-col gap-3">
                 {showLocation && (
-                    <div className="flex items-center gap-3 text-white">
-                        <MapPin className="text-red-500" size={28} />
+                    <div className="flex items-center gap-3">
+                        <MapPin size={28} style={{ color: textColor || '#ffffff' }} />
                         <span className="text-xl font-bold" style={{ color: textColor || '#ffffff' }}>
                             {event?.location || "Ubicación del Evento"}
                         </span>
@@ -139,8 +144,8 @@ export const EventHero = ({
                 )}
 
                 {showDate && (
-                    <div className="flex items-center gap-3 text-white">
-                        <Calendar className="text-white" size={28} />
+                    <div className="flex items-center gap-3">
+                        <Calendar size={28} style={{ color: textColor || '#ffffff' }} />
                         <span className="text-xl font-bold" style={{ color: textColor || '#ffffff' }}>
                             {displayDate}
                         </span>

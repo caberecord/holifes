@@ -45,22 +45,48 @@ export function Footer({
 
     useEffect(() => {
         const fetchOrganizer = async () => {
-            if (!event?.organizerId) return;
+            // Try to get organization first, fallback to user if no organization
+            const orgId = event?.organizationId || event?.organizerId;
+            if (!orgId) return;
 
             try {
-                const userDoc = await getDoc(doc(db, "users", event.organizerId));
-                if (userDoc.exists()) {
-                    setOrganizer(userDoc.data() as OrganizerProfile);
+                // Try organization first
+                if (event?.organizationId) {
+                    const orgDoc = await getDoc(doc(db, "organizations", event.organizationId));
+                    if (orgDoc.exists()) {
+                        const orgData = orgDoc.data();
+                        setOrganizer({
+                            displayName: orgData.name,
+                            companyName: orgData.name,
+                            email: orgData.contactEmail,
+                            phoneNumber: orgData.phone,
+                            photoURL: orgData.logo,
+                            bio: orgData.description,
+                            website: orgData.website,
+                            socialLinks: orgData.socialLinks,
+                            isCompany: true,
+                        });
+                        setLoading(false);
+                        return;
+                    }
+                }
+
+                // Fallback to user if no organization
+                if (event?.organizerId) {
+                    const userDoc = await getDoc(doc(db, "users", event.organizerId));
+                    if (userDoc.exists()) {
+                        setOrganizer(userDoc.data() as OrganizerProfile);
+                    }
                 }
             } catch (error) {
-                console.error("Error fetching organizer:", error);
+                console.error("Error fetching organizer/organization:", error);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchOrganizer();
-    }, [event?.organizerId]);
+    }, [event?.organizerId, event?.organizationId]);
 
     if (!event) return null;
 

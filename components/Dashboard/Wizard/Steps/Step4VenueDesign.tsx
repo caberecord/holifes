@@ -111,7 +111,8 @@ export default function Step4VenueDesign() {
                 organizerId: user.uid,
                 organizerEmail: user.email,
                 createdAt: serverTimestamp(),
-                status: 'draft'
+                status: 'draft',
+                coverImage: basicInfo.coverImage || null
             };
 
             // Save to Firestore

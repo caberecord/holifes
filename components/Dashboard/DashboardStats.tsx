@@ -17,6 +17,7 @@ import {
 } from "chart.js";
 import { ArrowUp, ArrowDown, Calendar as CalendarIcon, Filter } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useSearchParams } from "next/navigation";
 
 ChartJS.register(
     CategoryScale,
@@ -55,8 +56,11 @@ export default function DashboardStats() {
     const { user } = useAuth();
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(true);
-    const [dateFilter, setDateFilter] = useState<"week" | "month" | "quarter" | "year" | "all" | "custom">("all");
-    const [customRange, setCustomRange] = useState({ start: "", end: "" });
+    const searchParams = useSearchParams();
+
+    const dateFilter = searchParams.get("dateFilter") || "year";
+    const customStart = searchParams.get("startDate");
+    const customEnd = searchParams.get("endDate");
 
     useEffect(() => {
         const fetchEvents = async () => {
@@ -100,9 +104,9 @@ export default function DashboardStats() {
             startDate = new Date(now.getFullYear(), (quarter - 1) * 3, 1);
         } else if (dateFilter === "year") {
             startDate = new Date(now.getFullYear(), 0, 1);
-        } else if (dateFilter === "custom" && customRange.start) {
-            startDate = new Date(customRange.start);
-            if (customRange.end) endDate = new Date(customRange.end);
+        } else if (dateFilter === "custom" && customStart) {
+            startDate = new Date(customStart);
+            if (customEnd) endDate = new Date(customEnd);
         }
         // else if dateFilter === "all", use default (start from epoch)
 
@@ -201,69 +205,38 @@ export default function DashboardStats() {
     if (loading) return <div className="p-8 text-center">Cargando tablero...</div>;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             {/* Header & Filters */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-xl font-bold text-gray-900">Resumen General</h2>
-                <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
-                    <select
-                        value={dateFilter}
-                        onChange={(e) => setDateFilter(e.target.value as any)}
-                        className="border-0 bg-transparent text-sm font-medium text-gray-700 focus:ring-0 cursor-pointer"
-                    >
-                        <option value="all">Todo el Tiempo</option>
-                        <option value="week">Esta Semana</option>
-                        <option value="month">Este Mes</option>
-                        <option value="quarter">Este Trimestre</option>
-                        <option value="year">Este Año</option>
-                        <option value="custom">Personalizado</option>
-                    </select>
-                    {dateFilter === "custom" && (
-                        <div className="flex items-center gap-2 px-2 border-l border-gray-200">
-                            <input
-                                type="date"
-                                value={customRange.start}
-                                onChange={(e) => setCustomRange({ ...customRange, start: e.target.value })}
-                                className="text-xs border-gray-300 rounded p-1"
-                            />
-                            <span className="text-gray-400">-</span>
-                            <input
-                                type="date"
-                                value={customRange.end}
-                                onChange={(e) => setCustomRange({ ...customRange, end: e.target.value })}
-                                className="text-xs border-gray-300 rounded p-1"
-                            />
-                        </div>
-                    )}
-                </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
+                {/* Filters moved to TopBar */}
             </div>
 
             {/* Metric Cards */}
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {[
                     { title: "Ingresos Totales", value: `$${totalRevenue.toLocaleString()}`, icon: "💰", color: "bg-emerald-50 text-emerald-600" },
                     { title: "Entradas Vendidas", value: ticketsSold, icon: "🎟️", color: "bg-blue-50 text-blue-600" },
                     { title: "Eventos Activos", value: activeEventsCount, icon: "📅", color: "bg-purple-50 text-purple-600" },
                     { title: "Promedio Ticket", value: `$${ticketsSold > 0 ? Math.round(totalRevenue / ticketsSold).toLocaleString() : 0}`, icon: "📈", color: "bg-orange-50 text-orange-600" },
                 ].map((metric, index) => (
-                    <div key={index} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200">
-                        <div className="flex items-start justify-between mb-3">
-                            <div className={`rounded-lg p-3 text-2xl ${metric.color}`}>{metric.icon}</div>
+                    <div key={index} className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm hover:shadow-md transition-all duration-200">
+                        <div className="flex items-start justify-between mb-2">
+                            <div className={`rounded-lg p-1.5 text-lg ${metric.color}`}>{metric.icon}</div>
                         </div>
                         <div>
-                            <p className="text-sm text-gray-500 mb-1">{metric.title}</p>
-                            <h3 className="text-2xl font-bold text-gray-900">{metric.value}</h3>
+                            <p className="text-[10px] text-gray-500 mb-0.5 uppercase tracking-wide font-semibold">{metric.title}</p>
+                            <h3 className="text-xl font-bold text-gray-900">{metric.value}</h3>
                         </div>
                     </div>
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                 {/* Chart Section */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm lg:col-span-2">
+                <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm lg:col-span-2">
                     <div className="mb-6">
                         <h3 className="text-lg font-bold text-gray-900">Rendimiento de Ventas</h3>
-                        <p className="text-sm text-gray-500">Ingresos en el periodo seleccionado</p>
+                        <p className="text-xs text-gray-500">Ingresos en el periodo seleccionado</p>
                     </div>
                     <div className="h-80 w-full">
                         <Line options={chartOptions} data={getChartData()} />
@@ -271,7 +244,7 @@ export default function DashboardStats() {
                 </div>
 
                 {/* Recent Activity Section */}
-                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm overflow-hidden">
                     <h3 className="mb-5 text-lg font-bold text-gray-900">Actividad Reciente</h3>
                     <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
                         {transactions.length > 0 ? (

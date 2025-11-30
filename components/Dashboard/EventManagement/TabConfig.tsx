@@ -1,9 +1,10 @@
 "use client";
 import { Event } from "../../../types/event";
 import { useState, useEffect } from "react";
-import { Save, MapPin, Calendar, Type, Ticket, Loader2, Clock, Map, Link as LinkIcon, Tag, AlignLeft, CreditCard, Mail, Gift, Lock, Check } from "lucide-react";
+import { Save, MapPin, Calendar, Type, Ticket, Loader2, Clock, Map, Link as LinkIcon, Tag, AlignLeft, CreditCard, Mail, Gift, Lock, Check, Upload, X } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
-import { db } from "../../../lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "../../../lib/firebase";
 import VenueBuilder from "../../Builder/VenueBuilder";
 import { useVenueBuilderStore } from "@/store/venueBuilderStore";
 import type { TicketZone, DistributionMethod } from "@/store/eventWizardStore";
@@ -20,6 +21,7 @@ export default function TabConfig({ event }: TabConfigProps) {
         (event.distribution?.methods as DistributionMethod[]) || []
     );
     const [isSaving, setIsSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const { elements, stageConfig, loadElements, setStageConfig } = useVenueBuilderStore();
 
     // Load existing venue data when switching to design section
@@ -43,6 +45,38 @@ export default function TabConfig({ event }: TabConfigProps) {
             ? distributionMethods.filter(m => m !== method)
             : [...distributionMethods, method];
         setDistributionMethods(newMethods);
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            alert("La imagen no debe superar 10MB");
+            return;
+        }
+
+        setUploading(true);
+        try {
+            const timestamp = Date.now();
+            const filename = `event-covers/${timestamp}_${file.name}`;
+            const storageRef = ref(storage, filename);
+
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+
+            setFormData({ ...formData, coverImage: downloadURL });
+        } catch (error) {
+            console.error("Error uploading image:", error);
+            alert("Error al subir la imagen");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleRemoveImage = () => {
+        setFormData({ ...formData, coverImage: undefined });
     };
 
     const handleSave = async () => {
@@ -104,6 +138,7 @@ export default function TabConfig({ event }: TabConfigProps) {
                 description: formData.description || "",
                 address: formData.address || "",
                 category: formData.category || "",
+                coverImage: formData.coverImage || null,
                 plan: activePlan,
                 venue: venueData,
                 ...(activeSection === "distribution" && {
@@ -200,6 +235,60 @@ export default function TabConfig({ event }: TabConfigProps) {
                                         placeholder="Ej: Concierto de Verano 2025"
                                     />
                                 </div>
+                            </div>
+
+                            {/* Cover Image Upload */}
+                            <div className="relative group">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Portada del Evento <span className="text-gray-400 text-xs">(opcional)</span>
+                                </label>
+                                {!formData.coverImage ? (
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                            disabled={uploading}
+                                            className="hidden"
+                                            id="cover-upload-config"
+                                        />
+                                        <label
+                                            htmlFor="cover-upload-config"
+                                            className={`flex flex-col items-center justify-center w-full h-48 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                            {uploading ? (
+                                                <>
+                                                    <Loader2 className="h-10 w-10 text-indigo-500 animate-spin mb-3" />
+                                                    <p className="text-sm text-gray-500">Subiendo imagen...</p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="h-10 w-10 text-gray-400 mb-3" />
+                                                    <p className="text-sm font-medium text-gray-700">Haz clic o arrastra para subir</p>
+                                                    <p className="text-xs text-gray-500 mt-1">PNG, JPG hasta 10MB</p>
+                                                </>
+                                            )}
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <div className="relative group/image">
+                                        <img
+                                            src={formData.coverImage}
+                                            alt="Event Cover"
+                                            className="w-full h-48 object-cover rounded-xl border-2 border-gray-200"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveImage}
+                                            className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg opacity-0 group-hover/image:opacity-100 transition-opacity hover:bg-red-600"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                )}
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Esta imagen se mostrará en las métricas del evento y en el punto de venta.
+                                </p>
                             </div>
 
                             {/* Fecha y Horas */}

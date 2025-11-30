@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, DocumentSnapshot, FirestoreError } from "firebase/firestore";
 import { db } from "../../../../lib/firebase";
 import { Event } from "../../../../types/event";
 import EventHeader from "../../../../components/Dashboard/EventManagement/EventHeader";
@@ -30,21 +30,20 @@ export default function EditEventPage() {
     }, []);
 
     useEffect(() => {
-        const fetchEvent = async () => {
-            if (!params.id) return;
-            try {
-                const docRef = doc(db, "events", params.id as string);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    setEvent({ id: docSnap.id, ...docSnap.data() } as Event);
-                }
-            } catch (err) {
-                console.error("Error fetching event:", err);
-            } finally {
-                setLoading(false);
+        if (!params.id) return;
+
+        const docRef = doc(db, "events", params.id as string);
+        const unsubscribe = onSnapshot(docRef, (docSnap: DocumentSnapshot) => {
+            if (docSnap.exists()) {
+                setEvent({ id: docSnap.id, ...docSnap.data() } as Event);
             }
-        };
-        fetchEvent();
+            setLoading(false);
+        }, (error: FirestoreError) => {
+            console.error("Error fetching event:", error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, [params.id]);
 
     if (loading) return <div className="flex items-center justify-center h-screen text-gray-500">Cargando evento...</div>;

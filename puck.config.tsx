@@ -9,6 +9,7 @@ import { VideoPlayer } from "./components/Puck/VideoPlayer";
 import { VenueWidget } from "./components/Puck/VenueWidget";
 import { SocialNetworks } from "./components/Puck/SocialNetworks";
 import { Brands } from "./components/Puck/Brands";
+import { SpeakerGrid } from "./components/Puck/SpeakerGrid";
 import { TicketPricing } from "./components/Puck/TicketPricing";
 import { PhotoCarousel } from "./components/Puck/PhotoCarousel";
 import { Footer } from "./components/Puck/Footer";
@@ -97,6 +98,26 @@ export type Props = {
         }>;
         backgroundColor?: string;
         textColor?: string;
+        fontFamily?: string;
+    };
+    Conferencistas: {
+        title?: string;
+        subtitle?: string;
+        speakers: Array<{
+            name: string;
+            role: string;
+            bio?: string;
+            image: string;
+            socialLinks?: {
+                twitter?: string;
+                linkedin?: string;
+                instagram?: string;
+            };
+        }>;
+        backgroundColor?: string;
+        textColor?: string;
+        cardTextColor?: string;
+        cardBackgroundColor?: string;
         fontFamily?: string;
     };
     PreciosBoleteria: {
@@ -511,6 +532,98 @@ export const config: Config<Props> = {
                 fontFamily: "modern",
             },
             render: (props) => <Brands {...props} />,
+        },
+        Conferencistas: {
+            label: "Conferencistas / Artistas",
+            fields: {
+                backgroundColor: {
+                    type: "custom" as const,
+                    label: "Color de Fondo",
+                    render: ({ value, onChange, field }: any) => (
+                        <ColorPickerField value={value} onChange={onChange} label={field.label} />
+                    ),
+                },
+                textColor: {
+                    type: "custom" as const,
+                    label: "Color Título/Subtítulo",
+                    render: ({ value, onChange, field }: any) => (
+                        <ColorPickerField value={value} onChange={onChange} label={field.label} />
+                    ),
+                },
+                cardTextColor: {
+                    type: "custom" as const,
+                    label: "Color Texto Tarjetas",
+                    render: ({ value, onChange, field }: any) => (
+                        <ColorPickerField value={value} onChange={onChange} label={field.label} />
+                    ),
+                },
+                cardBackgroundColor: {
+                    type: "custom" as const,
+                    label: "Color Fondo Tarjetas",
+                    render: ({ value, onChange, field }: any) => (
+                        <ColorPickerField value={value} onChange={onChange} label={field.label} />
+                    ),
+                },
+                fontFamily: {
+                    type: "select" as const,
+                    label: "Tipografía",
+                    options: [
+                        { label: "Inter", value: "inter" },
+                        { label: "Montserrat", value: "montserrat" },
+                        { label: "Playfair", value: "playfair" },
+                        { label: "Oswald", value: "oswald" },
+                        { label: "Poppins", value: "poppins" },
+                        { label: "Merriweather", value: "merriweather" },
+                        { label: "Anton", value: "anton" },
+                        { label: "Cormorant", value: "cormorant" },
+                        { label: "Lilita One", value: "lilita" },
+                        { label: "Space Grotesk", value: "space" },
+                        { label: "Harlow", value: "harlow" },
+                        { label: "Curlz MT", value: "curlz" },
+                        { label: "Baguet Script", value: "baguet" },
+                        { label: "Cascadia Code", value: "cascadia" },
+                        { label: "Varsity Regular", value: "varsity" },
+                        { label: "Freshman", value: "freshman" },
+                    ],
+                },
+                title: { type: "text", label: "Título" },
+                subtitle: { type: "textarea", label: "Subtítulo (opcional)" },
+                speakers: {
+                    type: "array",
+                    label: "Conferencistas",
+                    arrayFields: {
+                        name: { type: "text", label: "Nombre" },
+                        role: { type: "text", label: "Cargo / Rol" },
+                        bio: { type: "textarea", label: "Biografía (opcional)" },
+                        image: {
+                            type: "custom",
+                            label: "Foto",
+                            render: ({ value, onChange, field }) => (
+                                <ImageUploadField value={value} onChange={onChange} label={field.label} />
+                            ),
+                        },
+                        socialLinks: {
+                            type: "object",
+                            label: "Redes Sociales (opcional)",
+                            objectFields: {
+                                twitter: { type: "text", label: "Twitter/X URL" },
+                                linkedin: { type: "text", label: "LinkedIn URL" },
+                                instagram: { type: "text", label: "Instagram URL" },
+                            },
+                        },
+                    },
+                },
+            },
+            defaultProps: {
+                title: "Nuestros Conferencistas",
+                speakers: [],
+                backgroundColor: "#F9FAFB",
+                textColor: "#111827",
+                cardTextColor: "#111827",
+                cardBackgroundColor: "#FFFFFF",
+                fontFamily: "modern",
+            },
+            render: (props) => <SpeakerGrid {...props} />,
         },
         PreciosBoleteria: {
             label: "Precios Boletería",

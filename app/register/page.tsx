@@ -3,33 +3,20 @@ import { useState, FormEvent, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { User, Building2, ArrowRight, ArrowLeft } from "lucide-react";
-import { LATIN_AMERICAN_COUNTRIES, CountryCode } from "../../types/company";
-import { doc, setDoc } from "firebase/firestore";
-import { db } from "../../lib/firebase";
+import { ArrowRight } from "lucide-react";
 
 export default function RegisterPage() {
-    const { register } = useAuth();
+    const { register, loginWithGoogle } = useAuth();
     const router = useRouter();
-    const [currentStep, setCurrentStep] = useState(1);
 
-    // Paso 1: Datos personales
     const [displayName, setDisplayName] = useState("");
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
-    const [accountType, setAccountType] = useState<"personal" | "business">("personal");
-
-    // Paso 2: Datos de empresa (solo para business)
-    const [companyName, setCompanyName] = useState("");
-    const [country, setCountry] = useState<CountryCode>("CO");
-    const [fiscalDocumentNumber, setFiscalDocumentNumber] = useState("");
 
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-
-    const selectedCountry = LATIN_AMERICAN_COUNTRIES.find(c => c.code === country);
 
     // Función para traducir errores de Firebase a mensajes amigables
     const getErrorMessage = (error: any): string => {
@@ -48,14 +35,12 @@ export default function RegisterPage() {
             'unavailable': 'El servicio no está disponible temporalmente. Intenta más tarde.',
         };
 
-        // Buscar mensaje específico
         for (const [code, message] of Object.entries(errorMessages)) {
             if (errorCode.includes(code)) {
                 return message;
             }
         }
 
-        // Mensaje genérico si no se encuentra el código
         return 'Ocurrió un error al crear la cuenta. Por favor intenta nuevamente.';
     };
 
@@ -79,7 +64,6 @@ export default function RegisterPage() {
             opacity: number;
         }> = [];
 
-        // Create particles
         for (let i = 0; i < 80; i++) {
             particles.push({
                 x: Math.random() * canvas.width,
@@ -93,25 +77,20 @@ export default function RegisterPage() {
 
         function animate() {
             if (!ctx || !canvas) return;
-
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw and update particles
             particles.forEach((particle, i) => {
                 particle.x += particle.vx;
                 particle.y += particle.vy;
 
-                // Bounce off edges
                 if (particle.x < 0 || particle.x > canvas.width) particle.vx *= -1;
                 if (particle.y < 0 || particle.y > canvas.height) particle.vy *= -1;
 
-                // Draw particle
                 ctx.beginPath();
                 ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
                 ctx.fillStyle = `rgba(139, 92, 246, ${particle.opacity})`;
                 ctx.fill();
 
-                // Draw connections
                 particles.forEach((particle2, j) => {
                     if (i === j) return;
                     const dx = particle.x - particle2.x;
@@ -140,16 +119,12 @@ export default function RegisterPage() {
         };
 
         window.addEventListener('resize', handleResize);
-
-        return () => {
-            window.removeEventListener('resize', handleResize);
-        };
+        return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    const handleNextStep = () => {
+    const handleSubmit = async () => {
         setError("");
 
-        // Validaciones paso 1
         if (!displayName.trim()) {
             setError("Por favor ingresa tu nombre completo");
             return;
@@ -170,50 +145,13 @@ export default function RegisterPage() {
             return;
         }
 
-        // Si es personal, registrar directamente
-        if (accountType === "personal") {
-            handleSubmit();
-        } else {
-            // Si es empresa, ir al paso 2
-            setCurrentStep(2);
-        }
-    };
-
-    const handleSubmit = async () => {
-        setError("");
-
-        // Validaciones paso 2 (solo para empresas)
-        if (accountType === "business" && currentStep === 2) {
-            if (!companyName.trim()) {
-                setError("Por favor ingresa el nombre de la empresa");
-                return;
-            }
-            if (!fiscalDocumentNumber.trim()) {
-                setError("Por favor ingresa el número de documento fiscal");
-                return;
-            }
-        }
-
         setIsLoading(true);
         try {
-            // Registrar usuario
-            const userCredential = await register(email, password, displayName, phone, accountType);
+            // Registrar usuario (siempre como personal inicialmente)
+            await register(email, password, displayName, phone, "personal");
 
-            // Si es empresa, guardar datos de empresa
-            if (accountType === "business" && userCredential.user) {
-                const companyData = {
-                    legalName: companyName,
-                    country,
-                    fiscalDocumentType: selectedCountry?.documentType,
-                    fiscalDocumentNumber,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                };
-
-                await setDoc(doc(db, "users", userCredential.user.uid, "companyData", "info"), companyData);
-            }
-
-            router.push("/dashboard");
+            // Redirigir al flujo de onboarding de organización
+            router.push("/dashboard/organizations/new");
         } catch (err: any) {
             setError(getErrorMessage(err));
         } finally {
@@ -231,222 +169,131 @@ export default function RegisterPage() {
             />
 
             <div className="glass-card w-full max-w-md space-y-6 rounded-2xl p-8 shadow-2xl relative z-10 bg-white/95 backdrop-blur-xl border border-gray-200">
-                {/* Progress indicator */}
-                <div className="flex items-center justify-center gap-2 mb-4">
-                    <div className={`h-2 w-16 rounded-full transition-colors ${currentStep === 1 ? 'bg-indigo-600' : 'bg-gray-300'}`} />
-                    {accountType === "business" && (
-                        <div className={`h-2 w-16 rounded-full transition-colors ${currentStep === 2 ? 'bg-indigo-600' : 'bg-gray-300'}`} />
-                    )}
-                </div>
 
                 <div>
                     <h2 className="mt-2 text-center text-3xl font-bold tracking-tight text-gray-900">
-                        {currentStep === 1 ? "Crea tu cuenta" : "Datos de empresa"}
+                        Crea tu cuenta
                     </h2>
                     <p className="mt-2 text-center text-sm text-gray-600">
-                        {currentStep === 1
-                            ? "Comienza a organizar eventos increíbles"
-                            : "Información fiscal de tu empresa"}
+                        Comienza a organizar eventos increíbles
                     </p>
                 </div>
 
-                {/* Paso 1: Datos personales */}
-                {currentStep === 1 && (
-                    <div className="space-y-4">
-                        {/* Nombre Completo */}
-                        <div>
-                            <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">
-                                Nombre completo
-                            </label>
-                            <input
-                                id="displayName"
-                                name="displayName"
-                                type="text"
-                                required
-                                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                placeholder="Tu nombre completo"
-                                value={displayName}
-                                onChange={(e) => setDisplayName(e.target.value)}
-                            />
-                        </div>
+                <div className="mb-6">
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            try {
+                                setIsLoading(true);
+                                await loginWithGoogle();
+                                // Redirigir al onboarding también con Google
+                                router.push("/dashboard/organizations/new");
+                            } catch (err: any) {
+                                setError(getErrorMessage(err));
+                                setIsLoading(false);
+                            }
+                        }}
+                        className="w-full flex items-center justify-center gap-3 bg-white text-gray-700 font-semibold py-3 px-4 rounded-lg border border-gray-300 shadow-sm hover:bg-gray-50 transition-all duration-200"
+                    >
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                        Registrarse con Google
+                    </button>
 
-                        {/* Email */}
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                                Correo electrónico
-                            </label>
-                            <input
-                                id="email"
-                                name="email"
-                                type="email"
-                                required
-                                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                placeholder="tu@ejemplo.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
+                    <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-300"></div>
                         </div>
-
-                        {/* Teléfono */}
-                        <div>
-                            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                                Teléfono/Celular <span className="text-gray-400 text-xs">(opcional)</span>
-                            </label>
-                            <input
-                                id="phone"
-                                name="phone"
-                                type="tel"
-                                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                placeholder="+57 300 123 4567"
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Tipo de Cuenta */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Tipo de cuenta
-                            </label>
-                            <div className="grid grid-cols-2 gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setAccountType("personal")}
-                                    className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${accountType === "personal"
-                                            ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-md"
-                                            : "border-gray-300 bg-white text-gray-600 hover:border-indigo-400"
-                                        }`}
-                                >
-                                    <User className="w-6 h-6" />
-                                    <span className="text-sm font-medium">Personal</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setAccountType("business")}
-                                    className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${accountType === "business"
-                                            ? "border-indigo-600 bg-indigo-50 text-indigo-700 shadow-md"
-                                            : "border-gray-300 bg-white text-gray-600 hover:border-indigo-400"
-                                        }`}
-                                >
-                                    <Building2 className="w-6 h-6" />
-                                    <span className="text-sm font-medium">Empresa</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Contraseña */}
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                                Contraseña
-                            </label>
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                required
-                                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                placeholder="Mínimo 6 caracteres"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                        </div>
-
-                        {/* Confirmar Contraseña */}
-                        <div>
-                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                                Confirmar contraseña
-                            </label>
-                            <input
-                                id="confirmPassword"
-                                name="confirmPassword"
-                                type="password"
-                                required
-                                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                placeholder="Repite tu contraseña"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                            />
+                        <div className="relative flex justify-center text-sm">
+                            <span className="px-2 bg-white text-gray-500">O regístrate con correo</span>
                         </div>
                     </div>
-                )}
+                </div>
 
-                {/* Paso 2: Datos de empresa */}
-                {currentStep === 2 && accountType === "business" && (
-                    <div className="space-y-4">
-                        {/* Nombre de Empresa */}
-                        <div>
-                            <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
-                                Nombre de la empresa <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                id="companyName"
-                                name="companyName"
-                                type="text"
-                                required
-                                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                placeholder="Ej: Eventos XYZ S.A.S."
-                                value={companyName}
-                                onChange={(e) => setCompanyName(e.target.value)}
-                            />
-                        </div>
-
-                        {/* País */}
-                        <div>
-                            <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">
-                                País <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                id="country"
-                                value={country}
-                                onChange={(e) => setCountry(e.target.value as CountryCode)}
-                                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                            >
-                                {LATIN_AMERICAN_COUNTRIES.map((country) => (
-                                    <option key={country.code} value={country.code}>
-                                        {country.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Tipo de Documento */}
-                        <div>
-                            <label htmlFor="documentType" className="block text-sm font-medium text-gray-700 mb-1">
-                                Tipo de documento
-                            </label>
-                            <input
-                                id="documentType"
-                                type="text"
-                                disabled
-                                value={`${selectedCountry?.documentName} (${selectedCountry?.documentType})`}
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-600 cursor-not-allowed"
-                            />
-                        </div>
-
-                        {/* Número de Documento */}
-                        <div>
-                            <label htmlFor="fiscalDocumentNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                                Número de identificación fiscal <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                id="fiscalDocumentNumber"
-                                name="fiscalDocumentNumber"
-                                type="text"
-                                required
-                                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                placeholder={`Ej: ${selectedCountry?.documentType}-123456789`}
-                                value={fiscalDocumentNumber}
-                                onChange={(e) => setFiscalDocumentNumber(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <p className="text-xs text-blue-700">
-                                💡 Podrás completar el resto de la información de tu empresa más tarde en Configuración.
-                            </p>
-                        </div>
+                <div className="space-y-4">
+                    {/* Nombre Completo */}
+                    <div>
+                        <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">
+                            Nombre completo
+                        </label>
+                        <input
+                            id="displayName"
+                            name="displayName"
+                            type="text"
+                            required
+                            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                            placeholder="Tu nombre completo"
+                            value={displayName}
+                            onChange={(e) => setDisplayName(e.target.value)}
+                        />
                     </div>
-                )}
+
+                    {/* Email */}
+                    <div>
+                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                            Correo electrónico
+                        </label>
+                        <input
+                            id="email"
+                            name="email"
+                            type="email"
+                            required
+                            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                            placeholder="tu@ejemplo.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+                    </div>
+
+                    {/* Teléfono */}
+                    <div>
+                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                            Teléfono/Celular <span className="text-gray-400 text-xs">(opcional)</span>
+                        </label>
+                        <input
+                            id="phone"
+                            name="phone"
+                            type="tel"
+                            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                            placeholder="+57 300 123 4567"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                        />
+                    </div>
+
+                    {/* Contraseña */}
+                    <div>
+                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                            Contraseña
+                        </label>
+                        <input
+                            id="password"
+                            name="password"
+                            type="password"
+                            required
+                            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                            placeholder="Mínimo 6 caracteres"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                    </div>
+
+                    {/* Confirmar Contraseña */}
+                    <div>
+                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                            Confirmar contraseña
+                        </label>
+                        <input
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            type="password"
+                            required
+                            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                            placeholder="Repite tu contraseña"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
+                    </div>
+                </div>
 
                 {error && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -455,22 +302,9 @@ export default function RegisterPage() {
                 )}
 
                 <div className="flex gap-3">
-                    {/* Botón Atrás */}
-                    {currentStep === 2 && (
-                        <button
-                            type="button"
-                            onClick={() => setCurrentStep(1)}
-                            className="flex-1 flex items-center justify-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-4 rounded-lg transition-all"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
-                            Atrás
-                        </button>
-                    )}
-
-                    {/* Botón Siguiente/Registrarse */}
                     <button
                         type="button"
-                        onClick={currentStep === 1 ? handleNextStep : handleSubmit}
+                        onClick={handleSubmit}
                         disabled={isLoading}
                         className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                     >
@@ -484,8 +318,8 @@ export default function RegisterPage() {
                             </>
                         ) : (
                             <>
-                                {currentStep === 1 && accountType === "business" ? "Siguiente" : "Registrarse"}
-                                {currentStep === 1 && accountType === "business" && <ArrowRight className="w-5 h-5" />}
+                                Registrarse
+                                <ArrowRight className="w-5 h-5" />
                             </>
                         )}
                     </button>

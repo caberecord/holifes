@@ -3,6 +3,7 @@
 export interface UserPermissions {
     canViewAttendeeDetails: boolean; // If true, can see full attendee info
     canExportData: boolean; // Future: allow CSV exports
+    canSell?: boolean; // If true, can access POS
 }
 
 export type UserRole = 'organizer' | 'staff' | 'superadmin';
@@ -15,6 +16,7 @@ export interface AppUser {
     createdAt: Date;
     displayName?: string; // User's display name
     phone?: string; // User's phone number
+    photoURL?: string; // User's profile picture from Google
     accountType?: 'personal' | 'business'; // Type of account
     // Staff-specific fields
     assignedEvents?: string[]; // Array of event IDs

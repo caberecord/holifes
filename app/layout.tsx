@@ -18,6 +18,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { ToastContainer } from 'react-toastify';
 
 import { AuthContextProvider } from "../context/AuthContext";
+import CookieConsent from "../components/Shared/CookieConsent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -85,6 +86,7 @@ export default function RootLayout({
           pauseOnHover
           theme="light"
         />
+        <CookieConsent />
       </body>
     </html>
   );

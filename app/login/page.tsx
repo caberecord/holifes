@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
-    const { login } = useAuth();
+    const { login, loginWithGoogle } = useAuth();
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -157,74 +157,103 @@ export default function LoginPage() {
                         Inicia sesión para gestionar tus eventos
                     </p>
                 </div>
-                <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-                    <div className="space-y-4">
-                        {/* Email */}
+                <div className="mt-6">
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            try {
+                                setIsLoading(true);
+                                await loginWithGoogle();
+                                router.push("/dashboard");
+                            } catch (err: any) {
+                                setError(getErrorMessage(err));
+                                setIsLoading(false);
+                            }
+                        }}
+                        className="w-full flex items-center justify-center gap-3 bg-white text-gray-700 font-semibold py-3 px-4 rounded-lg border border-gray-300 shadow-sm hover:bg-gray-50 transition-all duration-200"
+                    >
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                        Continuar con Google
+                    </button>
+
+                    <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="px-2 bg-white text-gray-500">O inicia sesión con correo</span>
+                        </div>
+                    </div>
+
+                    <form className="space-y-4" onSubmit={handleSubmit}>
+                        <div className="space-y-4">
+                            {/* Email */}
+                            <div>
+                                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                                    Correo electrónico
+                                </label>
+                                <input
+                                    id="email"
+                                    name="email"
+                                    type="email"
+                                    required
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                    placeholder="tu@ejemplo.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Password */}
+                            <div>
+                                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                                    Contraseña
+                                </label>
+                                <input
+                                    id="password"
+                                    name="password"
+                                    type="password"
+                                    required
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                    placeholder="Tu contraseña"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                                {error}
+                            </div>
+                        )}
+
                         <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                                Correo electrónico
-                            </label>
-                            <input
-                                id="email"
-                                name="email"
-                                type="email"
-                                required
-                                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                placeholder="tu@ejemplo.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                            >
+                                {isLoading ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                        </svg>
+                                        Iniciando sesión...
+                                    </span>
+                                ) : (
+                                    "Iniciar Sesión"
+                                )}
+                            </button>
                         </div>
-
-                        {/* Password */}
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                                Contraseña
-                            </label>
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                required
-                                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                placeholder="Tu contraseña"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
+                        <div className="text-sm text-center">
+                            <Link href="/register" className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors">
+                                ¿No tienes cuenta? Regístrate
+                            </Link>
                         </div>
-                    </div>
-
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                            {error}
-                        </div>
-                    )}
-
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                        >
-                            {isLoading ? (
-                                <span className="flex items-center justify-center gap-2">
-                                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                    </svg>
-                                    Iniciando sesión...
-                                </span>
-                            ) : (
-                                "Iniciar Sesión"
-                            )}
-                        </button>
-                    </div>
-                    <div className="text-sm text-center">
-                        <Link href="/register" className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors">
-                            ¿No tienes cuenta? Regístrate
-                        </Link>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
         </div>
     );

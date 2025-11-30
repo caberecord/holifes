@@ -107,8 +107,10 @@ export default async function middleware(req: NextRequest) {
     // Solo permitir caracteres alfanuméricos y guiones
     const subdomainRegex = /^[a-z0-9-]+$/;
     if (!subdomainRegex.test(subdomain)) {
-        // Subdominio inválido, redirigir al home
-        return NextResponse.redirect(new URL('/', req.url));
+        // Subdominio inválido, pero en lugar de redirigir al home (que parece login),
+        // dejamos que pase. Si no existe, dará 404 en la página.
+        console.log(`[Middleware] Invalid subdomain format: ${subdomain}`);
+        // return NextResponse.redirect(new URL('/', req.url)); 
     }
 
 

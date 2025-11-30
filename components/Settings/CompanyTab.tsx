@@ -119,19 +119,19 @@ export default function CompanyTab() {
 
         setIsSaving(true);
         try {
-            // Build data object, excluding undefined values
+            // Build data object, ensuring no undefined values
             const dataToSave: any = {
-                legalName: companyData.legalName!,
-                country: companyData.country!,
-                fiscalDocumentType: selectedCountry!.documentType,
-                fiscalDocumentNumber: companyData.fiscalDocumentNumber!,
-                fiscalAddress: companyData.fiscalAddress!,
-                city: companyData.city!,
-                phone: companyData.phone!,
-                billingEmail: companyData.billingEmail!,
-                vatEnabled: companyData.vatEnabled!,
-                vatRate: companyData.vatRate!,
-                taxRegime: companyData.taxRegime!,
+                legalName: companyData.legalName || "",
+                country: companyData.country || "CO",
+                fiscalDocumentType: selectedCountry?.documentType || "NIT",
+                fiscalDocumentNumber: companyData.fiscalDocumentNumber || "",
+                fiscalAddress: companyData.fiscalAddress || "",
+                city: companyData.city || "",
+                phone: companyData.phone || "",
+                billingEmail: companyData.billingEmail || "",
+                vatEnabled: companyData.vatEnabled || false,
+                vatRate: companyData.vatRate || 0,
+                taxRegime: companyData.taxRegime || "general",
                 createdAt: companyData.createdAt || new Date(),
                 updatedAt: new Date(),
             };

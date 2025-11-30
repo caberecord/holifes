@@ -51,7 +51,7 @@ export async function createStaffUser(
     password: string,
     assignedEvents: string[],
     organizerId: string,
-    permissions: { canViewAttendeeDetails: boolean; canExportData: boolean }
+    permissions: { canViewAttendeeDetails: boolean; canExportData: boolean; canSell: boolean }
 ): Promise<AppUser> {
     try {
         // Create Firebase Auth user
