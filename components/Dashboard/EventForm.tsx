@@ -12,7 +12,7 @@ interface EventFormProps {
 }
 
 export default function EventForm({ initialData }: EventFormProps) {
-    const { user } = useAuth();
+    const { user, appUser } = useAuth();
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -64,7 +64,7 @@ export default function EventForm({ initialData }: EventFormProps) {
                 ...formData,
                 // Ensure required fields for Event interface
                 status: initialData?.status || 'draft',
-                organizerId: user.uid,
+                organizerId: (appUser?.role === 'staff' && appUser?.createdBy) ? appUser.createdBy : user.uid,
                 createdAt: initialData?.createdAt || Timestamp.now(),
             };
 
