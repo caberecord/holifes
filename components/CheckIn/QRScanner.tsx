@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { playSuccessSound } from "@/lib/sounds";
 
 interface QRScannerProps {
     onScan: (ticketId: string) => void;
@@ -75,6 +76,7 @@ export default function QRScanner({ onScan, isProcessing }: QRScannerProps) {
             // 3. IMMEDIATE BLOCK
             isScanningRef.current = false;
             console.log(`QR Detected: ${decodedText}`);
+            playSuccessSound();
 
             // 4. STOP CAMERA
             qrScanner.clear().then(() => {

@@ -8,6 +8,7 @@ import { Event } from "@/types/event";
 import { ValidationResult } from "@/types/user";
 import { validateAndCheckIn, getAttendanceStats } from "@/lib/checkin/validateTicket";
 import QRScanner from "@/components/CheckIn/QRScanner";
+import { playErrorSound } from "@/lib/sounds";
 import ValidationResultDisplay from "@/components/CheckIn/ValidationResult";
 import AttendanceStats from "@/components/CheckIn/AttendanceStats";
 import { QrCode, ChevronDown, Shield, LogOut } from "lucide-react";
@@ -97,6 +98,8 @@ export default function CheckInPage() {
         // Refresh stats after successful check-in
         if (result.status === 'VALID') {
             await loadAttendanceStats();
+        } else {
+            playErrorSound();
         }
     };
 
