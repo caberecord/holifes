@@ -122,6 +122,15 @@ export const EventSchema = z.object({
     tags: z.array(z.string()).optional(),
     social_links: SocialLinksSchema.optional(),
     speakers: z.array(z.any()).optional(),
+
+    // Stats
+    stats: z.object({
+        totalSold: z.number().default(0),
+        totalRevenue: z.number().default(0),
+        soldByZone: z.record(z.string(), z.number()).default({}),
+        attendeesCount: z.number().default(0),
+        checkedInCount: z.number().default(0),
+    }).optional(),
 });
 
 export type Event = z.infer<typeof EventSchema>;

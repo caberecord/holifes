@@ -1,31 +1,49 @@
 "use client";
 import { Event } from "../../../types/event";
 import { Users, Ticket, DollarSign, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { collection, query, orderBy, limit, getDocs } from "firebase/firestore";
+import { db } from "../../../lib/firebase";
 
 interface TabMetricsProps {
     event: Event;
 }
 
 export default function TabMetrics({ event }: TabMetricsProps) {
-    // Real calculations based on event data
-    const attendees = event.distribution?.uploadedGuests || [];
+    const [recentSales, setRecentSales] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchRecentSales = async () => {
+            if (!event.id) return;
+            try {
+                const q = query(collection(db, "events", event.id, "attendees"), orderBy("createdAt", "desc"), limit(5));
+                const snapshot = await getDocs(q);
+                const sales = snapshot.docs.map(doc => ({ id: doc.data().createdAt?.toMillis?.() || Date.now(), ...doc.data() }));
+                setRecentSales(sales);
+            } catch (error) {
+                console.error("Error fetching recent sales:", error);
+                // Fallback to legacy
+                if (event.distribution?.uploadedGuests) {
+                    setRecentSales([...event.distribution.uploadedGuests].sort((a, b) => b.id - a.id).slice(0, 5));
+                }
+            }
+        };
+        fetchRecentSales();
+    }, [event.id]);
+
+    // Calculate metrics using stats (or fallback)
+    const soldTickets = event.stats?.totalSold ?? event.distribution?.uploadedGuests?.length ?? 0;
     const totalCapacity = event.venue?.totalCapacity || 0;
-    const soldTickets = attendees.length;
     const availableTickets = Math.max(0, totalCapacity - soldTickets);
 
-    // Calculate revenue
-    const revenue = attendees.reduce((acc, guest) => {
+    // Revenue
+    const revenue = event.stats?.totalRevenue ?? event.distribution?.uploadedGuests?.reduce((acc, guest) => {
         const zone = event.venue?.zones.find(z => z.name === guest.Zone);
         return acc + (zone?.price || 0);
-    }, 0);
+    }, 0) ?? 0;
 
-    // Calculate conversion (Sold / Total Capacity)
+    // Conversion
     const conversionRate = totalCapacity > 0 ? Math.round((soldTickets / totalCapacity) * 100) : 0;
-
-    // Get recent sales (sorted by ID which is timestamp)
-    const recentSales = [...attendees]
-        .sort((a, b) => b.id - a.id)
-        .slice(0, 5);
 
     const stats = [
         { name: 'Entradas Vendidas', value: soldTickets, icon: Ticket, color: 'text-blue-600', bg: 'bg-blue-100' },
@@ -36,7 +54,7 @@ export default function TabMetrics({ event }: TabMetricsProps) {
 
     // Calculate occupancy per zone
     const zoneOccupancy = event.venue?.zones.map(zone => {
-        const count = attendees.filter(a => a.Zone === zone.name).length;
+        const count = event.stats?.soldByZone?.[zone.name] ?? event.distribution?.uploadedGuests?.filter(a => a.Zone === zone.name).length ?? 0;
         const percentage = zone.capacity > 0 ? Math.round((count / zone.capacity) * 100) : 0;
         return { ...zone, count, percentage };
     }) || [];

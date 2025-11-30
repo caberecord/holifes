@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, collectionGroup } from "firebase/firestore";
 import { Event } from "@/types/event";
 import { Line } from "react-chartjs-2";
 import {
@@ -62,28 +62,78 @@ export default function DashboardStats() {
     const customStart = searchParams.get("startDate");
     const customEnd = searchParams.get("endDate");
 
+    const [transactions, setTransactions] = useState<any[]>([]);
+
     useEffect(() => {
-        const fetchEvents = async () => {
+        const fetchData = async () => {
             if (!user) return;
 
             try {
-                const q = query(
+                // 1. Fetch Events (for names and legacy data)
+                const eventsQuery = query(
                     collection(db, "events"),
                     where("organizerId", "==", user.uid)
                 );
-                const querySnapshot = await getDocs(q);
-                const eventsData = querySnapshot.docs.map(doc => ({
+                const eventsSnapshot = await getDocs(eventsQuery);
+                const eventsData = eventsSnapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 })) as Event[];
                 setEvents(eventsData);
+
+                // 2. Fetch New Attendees (Collection Group)
+                const attendeesQuery = query(
+                    collectionGroup(db, "attendees"),
+                    where("organizerId", "==", user.uid)
+                );
+                const attendeesSnapshot = await getDocs(attendeesQuery);
+
+                // 3. Merge Data
+                const allTransactionsMap = new Map();
+
+                // Add Legacy Data first
+                eventsData.forEach(event => {
+                    const guests = event.distribution?.uploadedGuests || [];
+                    guests.forEach((guest: any) => {
+                        if (guest.ticketId) {
+                            allTransactionsMap.set(guest.ticketId, {
+                                ...guest,
+                                eventName: event.name,
+                                eventDate: event.date,
+                                // Use purchaseDate or event creation date as fallback
+                                date: guest.purchaseDate ? new Date(guest.purchaseDate) : (event.createdAt ? new Date(event.createdAt) : new Date())
+                            });
+                        }
+                    });
+                });
+
+                // Overwrite with New Data (more recent/accurate)
+                attendeesSnapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    // Try to get eventId from doc ref (parent is 'attendees', parent.parent is eventDoc)
+                    const eventId = doc.ref.parent.parent?.id;
+                    const event = eventsData.find(e => e.id === eventId);
+
+                    if (data.ticketId) {
+                        allTransactionsMap.set(data.ticketId, {
+                            ...data,
+                            eventName: event?.name || "Evento Desconocido",
+                            eventDate: event?.date,
+                            date: data.createdAt?.toDate ? data.createdAt.toDate() : (data.purchaseDate ? new Date(data.purchaseDate) : new Date())
+                        });
+                    }
+                });
+
+                const allTransactions = Array.from(allTransactionsMap.values());
+                setTransactions(allTransactions);
+
             } catch (error) {
-                console.error("Error fetching events:", error);
+                console.error("Error fetching dashboard data:", error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchEvents();
+        fetchData();
     }, [user]);
 
     // Filter Logic
@@ -108,45 +158,35 @@ export default function DashboardStats() {
             startDate = new Date(customStart);
             if (customEnd) endDate = new Date(customEnd);
         }
-        // else if dateFilter === "all", use default (start from epoch)
 
-        const transactions: any[] = [];
+        return transactions
+            .filter(tx => {
+                const txDate = new Date(tx.date);
+                if (isNaN(txDate.getTime())) return false;
+                if (txDate < startDate || txDate > endDate) return false;
 
-        events.forEach(event => {
-            const attendees = event.distribution?.uploadedGuests || [];
-            attendees.forEach(guest => {
-                // Prefer purchaseDate from POS, fallback to event dates
-                const dateStr = guest.purchaseDate || event.createdAt || event.date;
-                if (!dateStr) return;
-
-                const txDate = new Date(dateStr);
-
-                // Check if date is valid and within range
-                if (!isNaN(txDate.getTime()) && txDate >= startDate && txDate <= endDate) {
-                    const zone = event.venue?.zones.find(z => z.name === guest.Zone);
-                    const price = zone?.price || 0;
-
-                    // Include if has price OR has ticketId (for free events)
-                    if (price > 0 || guest.ticketId) {
-                        transactions.push({
-                            ...guest,
-                            price,
-                            eventName: event.name,
-                            date: txDate
-                        });
-                    }
+                // Include if has price OR has ticketId
+                // We need to find the price if it's not in the transaction
+                let price = tx.price || 0;
+                if (!price && tx.eventName && tx.Zone) {
+                    const event = events.find(e => e.name === tx.eventName);
+                    const zone = event?.venue?.zones.find(z => z.name === tx.Zone);
+                    price = zone?.price || 0;
                 }
-            });
-        });
 
-        return transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
+                // Attach price for downstream aggregation
+                tx.price = price;
+
+                return price > 0 || tx.ticketId;
+            })
+            .sort((a, b) => b.date.getTime() - a.date.getTime());
     };
 
-    const transactions = getFilteredTransactions();
+    const filteredTransactions = getFilteredTransactions();
 
     // Metrics Calculation
-    const totalRevenue = transactions.reduce((acc, tx) => acc + (tx.price || 0), 0);
-    const ticketsSold = transactions.length;
+    const totalRevenue = filteredTransactions.reduce((acc, tx) => acc + (tx.price || 0), 0);
+    const ticketsSold = filteredTransactions.length;
     const activeEventsCount = events.filter(e => e.status === 'published').length;
 
     // Chart Data Preparation
@@ -157,7 +197,7 @@ export default function DashboardStats() {
         // Group by day/month depending on filter
         const groupedData: Record<string, number> = {};
 
-        transactions.forEach(tx => {
+        filteredTransactions.forEach(tx => {
             const dateKey = tx.date.toLocaleDateString('es-ES', {
                 day: 'numeric',
                 month: 'short'
@@ -247,8 +287,8 @@ export default function DashboardStats() {
                 <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm overflow-hidden">
                     <h3 className="mb-5 text-lg font-bold text-gray-900">Actividad Reciente</h3>
                     <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
-                        {transactions.length > 0 ? (
-                            transactions.slice(0, 6).map((tx, i) => (
+                        {filteredTransactions.length > 0 ? (
+                            filteredTransactions.slice(0, 6).map((tx, i) => (
                                 <div key={i} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                                     <div className="flex items-center gap-3">
                                         <div className="h-9 w-9 rounded-full bg-indigo-100 flex items-center justify-center text-sm font-bold text-indigo-600 shrink-0">

@@ -1,10 +1,13 @@
-/**
- * Ticket Security Utilities
- * Provides HMAC-based digital signatures for ticket validation
- */
 
 /**
- * Generate a secure HMAC signature for a ticket
+ * Ticket Security Utilities
+ * Provides HMAC-based digital signatures for ticket validation via Server API
+ */
+
+import { auth } from './firebase';
+
+/**
+ * Generate a secure HMAC signature for a ticket via API
  * @param ticketData - Object containing ticket information
  * @returns Promise<string> - Hex-encoded HMAC signature
  */
@@ -14,42 +17,25 @@ export async function generateTicketSignature(ticketData: {
     eventId: string;
 }): Promise<string> {
     try {
-        const secretKey = process.env.NEXT_PUBLIC_TICKET_SECRET_KEY || 'default-secret-key-change-in-production';
-
-        // Concatenate data to be signed
-        // Note: We do NOT normalize here to allow verifying legacy non-normalized signatures.
-        // Generators should normalize before calling this if desired.
-        const dataToSign = `${ticketData.ticketId}|${ticketData.email}|${ticketData.eventId}`;
-
-        // Convert secret key and data to Uint8Array
-        const encoder = new TextEncoder();
-        const keyData = encoder.encode(secretKey);
-        const messageData = encoder.encode(dataToSign);
-
-        // Check if crypto.subtle is available
-        if (!crypto || !crypto.subtle) {
-            throw new Error('crypto.subtle no disponible en este contexto. Asegúrate de que la app esté en HTTPS.');
+        const token = await auth.currentUser?.getIdToken();
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
 
-        // Import key for HMAC
-        const cryptoKey = await crypto.subtle.importKey(
-            'raw',
-            keyData,
-            { name: 'HMAC', hash: 'SHA-256' },
-            false,
-            ['sign']
-        );
+        const response = await fetch('/api/tickets/sign', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(ticketData)
+        });
 
-        // Generate HMAC signature
-        const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to sign ticket');
+        }
 
-        // Convert to hex string (take first 8 bytes for readability)
-        const signatureArray = new Uint8Array(signature);
-        const hexSignature = Array.from(signatureArray.slice(0, 8))
-            .map(b => b.toString(16).padStart(2, '0'))
-            .join('');
-
-        return hexSignature.toUpperCase();
+        const data = await response.json();
+        return data.signature;
     } catch (error) {
         console.error('Error generating signature:', error);
         throw new Error(`Error al generar firma: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -57,7 +43,7 @@ export async function generateTicketSignature(ticketData: {
 }
 
 /**
- * Verify a ticket signature
+ * Verify a ticket signature via API
  * @param ticketData - Ticket data to verify
  * @param providedSignature - The signature to verify against
  * @returns Promise<boolean> - True if signature is valid
@@ -70,27 +56,32 @@ export async function verifyTicketSignature(
     },
     providedSignature: string
 ): Promise<boolean> {
-    // 1. Try with normalized email (Preferred/New Standard)
-    const normalizedEmail = ticketData.email.toLowerCase().trim();
-    const signatureNormalized = await generateTicketSignature({
-        ...ticketData,
-        email: normalizedEmail
-    });
-
-    if (signatureNormalized === providedSignature.toUpperCase()) {
-        return true;
-    }
-
-    // 2. Fallback: Try with raw email (Legacy compatibility)
-    // This handles cases where old tickets were signed with uppercase/mixed emails
-    if (ticketData.email !== normalizedEmail) {
-        const signatureRaw = await generateTicketSignature(ticketData);
-        if (signatureRaw === providedSignature.toUpperCase()) {
-            return true;
+    try {
+        const token = await auth.currentUser?.getIdToken();
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
-    }
 
-    return false;
+        const response = await fetch('/api/tickets/verify', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                ...ticketData,
+                signature: providedSignature
+            })
+        });
+
+        if (!response.ok) {
+            return false;
+        }
+
+        const data = await response.json();
+        return data.valid === true;
+    } catch (error) {
+        console.error('Error verifying signature:', error);
+        return false;
+    }
 }
 
 /**
@@ -223,4 +214,3 @@ export async function verifyQRPayload(
         payload.s
     );
 }
-

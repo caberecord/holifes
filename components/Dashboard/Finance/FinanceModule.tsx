@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, collectionGroup } from "firebase/firestore";
 import { Event } from "@/types/event";
 import { DollarSign, CreditCard, Wallet, TrendingUp, Filter, Download } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -9,85 +9,128 @@ import { useAuth } from "@/context/AuthContext";
 export default function FinanceModule() {
     const { user } = useAuth();
     const [events, setEvents] = useState<Event[]>([]);
+    const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedEventId, setSelectedEventId] = useState<string>("all");
 
     useEffect(() => {
-        const fetchEvents = async () => {
+        const fetchData = async () => {
             if (!user) return;
 
             try {
-                // Fetch events filtered by organizerId
-                const q = query(
+                // 1. Fetch Events
+                const eventsQuery = query(
                     collection(db, "events"),
                     where("organizerId", "==", user.uid)
                 );
-                const querySnapshot = await getDocs(q);
-                const eventsData = querySnapshot.docs.map(doc => ({
+                const eventsSnapshot = await getDocs(eventsQuery);
+                const eventsData = eventsSnapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 })) as Event[];
                 setEvents(eventsData);
+
+                // 2. Fetch New Attendees (Collection Group)
+                const attendeesQuery = query(
+                    collectionGroup(db, "attendees"),
+                    where("organizerId", "==", user.uid)
+                );
+                const attendeesSnapshot = await getDocs(attendeesQuery);
+
+                // 3. Merge Data
+                const allTransactionsMap = new Map();
+
+                // Add Legacy Data first
+                eventsData.forEach(event => {
+                    const guests = event.distribution?.uploadedGuests || [];
+                    guests.forEach((guest: any) => {
+                        if (guest.ticketId) {
+                            allTransactionsMap.set(guest.ticketId, {
+                                ...guest,
+                                eventId: event.id,
+                                eventName: event.name,
+                                eventDate: event.date,
+                                date: guest.purchaseDate ? new Date(guest.purchaseDate) : (event.createdAt ? new Date(event.createdAt) : new Date())
+                            });
+                        }
+                    });
+                });
+
+                // Overwrite with New Data
+                attendeesSnapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    const eventId = doc.ref.parent.parent?.id;
+                    const event = eventsData.find(e => e.id === eventId);
+
+                    if (data.ticketId) {
+                        allTransactionsMap.set(data.ticketId, {
+                            ...data,
+                            eventId: eventId,
+                            eventName: event?.name || "Evento Desconocido",
+                            eventDate: event?.date,
+                            date: data.createdAt?.toDate ? data.createdAt.toDate() : (data.purchaseDate ? new Date(data.purchaseDate) : new Date())
+                        });
+                    }
+                });
+
+                setTransactions(Array.from(allTransactionsMap.values()));
+
             } catch (error) {
-                console.error("Error fetching events:", error);
+                console.error("Error fetching finance data:", error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchEvents();
+        fetchData();
     }, [user]);
 
-    // Filter logic
-    const filteredEvents = selectedEventId === "all"
-        ? events
-        : events.filter(e => e.id === selectedEventId);
+    // Filter Logic
+    const filteredTransactions = selectedEventId === "all"
+        ? transactions
+        : transactions.filter(t => t.eventId === selectedEventId);
 
     // Aggregation Logic
     let totalRevenue = 0;
     let cashBalance = 0;
-    let bankBalance = 0; // Nequi, Daviplata, PSE, Tarjeta, Transferencia
+    let bankBalance = 0;
     let totalTicketsSold = 0;
 
     const salesByMethod: Record<string, number> = {};
     const recentTransactions: any[] = [];
 
-    filteredEvents.forEach(event => {
-        const attendees = event.distribution?.uploadedGuests || [];
+    filteredTransactions.forEach(tx => {
+        // Find price if not in transaction
+        let price = tx.price || 0;
+        if (!price && tx.eventName && tx.Zone) {
+            const event = events.find(e => e.id === tx.eventId);
+            const zone = event?.venue?.zones.find(z => z.name === tx.Zone);
+            price = zone?.price || 0;
+        }
 
-        attendees.forEach(guest => {
-            // Only count if it has a payment method (implies it was sold via POS or verified)
-            // Or if it has a price associated (legacy data might need handling)
-            if (guest.paymentMethod || guest.ticketId) {
-                const zone = event.venue?.zones.find(z => z.name === guest.Zone);
-                const price = zone?.price || 0;
+        if (price > 0) {
+            totalRevenue += price;
+            totalTicketsSold++;
 
-                if (price > 0) {
-                    totalRevenue += price;
-                    totalTicketsSold++;
+            const method = tx.paymentMethod || "Desconocido";
+            salesByMethod[method] = (salesByMethod[method] || 0) + price;
 
-                    const method = guest.paymentMethod || "Desconocido";
-                    salesByMethod[method] = (salesByMethod[method] || 0) + price;
-
-                    if (method === "Efectivo") {
-                        cashBalance += price;
-                    } else if (method !== "Desconocido") {
-                        bankBalance += price;
-                    }
-
-                    // Add to transactions list
-                    recentTransactions.push({
-                        id: guest.ticketId || Math.random().toString(),
-                        date: event.createdAt || event.date, // Fallback
-                        eventName: event.name,
-                        buyer: guest.Name,
-                        amount: price,
-                        method: method,
-                        status: "Completado"
-                    });
-                }
+            if (method === "Efectivo") {
+                cashBalance += price;
+            } else if (method !== "Desconocido") {
+                bankBalance += price;
             }
-        });
+
+            recentTransactions.push({
+                id: tx.ticketId || Math.random().toString(),
+                date: tx.date,
+                eventName: tx.eventName,
+                buyer: tx.Name,
+                amount: price,
+                method: method,
+                status: "Completado"
+            });
+        }
     });
 
     // Sort transactions by date (newest first)

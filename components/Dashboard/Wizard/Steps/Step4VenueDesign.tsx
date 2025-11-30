@@ -6,7 +6,7 @@ import { useVenueBuilderStore } from "@/store/venueBuilderStore";
 import type { TicketZone } from "@/store/eventWizardStore";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, writeBatch, doc } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { showToast } from "@/lib/toast";
 import { Loader2 } from "lucide-react";
@@ -93,6 +93,9 @@ export default function Step4VenueDesign() {
 
             const totalCapacity = zones.reduce((sum, zone) => sum + zone.capacity, 0);
 
+            // Calculate initial stats from uploaded guests
+            const initialAttendeesCount = distribution.uploadedGuests.length;
+
             const eventData = {
                 ...basicInfo,
                 plan: selectedPlan,
@@ -106,7 +109,14 @@ export default function Step4VenueDesign() {
                     methods: distribution.methods, // Array of selected methods
                     isFree: distribution.methods.includes('free'),
                     hasGuestList: distribution.uploadedGuests.length > 0,
-                    guestCount: distribution.uploadedGuests.length
+                    guestCount: initialAttendeesCount
+                },
+                stats: {
+                    totalSold: 0,
+                    totalRevenue: 0,
+                    soldByZone: {},
+                    attendeesCount: initialAttendeesCount,
+                    checkedInCount: 0
                 },
                 organizerId: user.uid,
                 organizerEmail: user.email,
@@ -118,6 +128,32 @@ export default function Step4VenueDesign() {
             // Save to Firestore
             const docRef = await addDoc(collection(db, "events"), eventData);
             console.log("Event created with ID: ", docRef.id);
+
+            // 3. Save Uploaded Guests to Subcollection
+            if (distribution.uploadedGuests.length > 0) {
+                const batchSize = 500;
+                const guests = distribution.uploadedGuests;
+                const attendeesCollectionRef = collection(db, "events", docRef.id, "attendees");
+
+                for (let i = 0; i < guests.length; i += batchSize) {
+                    const batch = writeBatch(db);
+                    const chunk = guests.slice(i, i + batchSize);
+
+                    chunk.forEach((guest) => {
+                        const newDocRef = doc(attendeesCollectionRef);
+                        batch.set(newDocRef, {
+                            ...guest,
+                            eventId: docRef.id,
+                            organizerId: user.uid,
+                            createdAt: serverTimestamp(),
+                            status: 'valid', // Default status
+                            source: 'upload'
+                        });
+                    });
+
+                    await batch.commit();
+                }
+            }
 
             // Send confirmation email
             try {

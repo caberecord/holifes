@@ -1,17 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebaseAdmin';
+import { verifyAuth, unauthorizedResponse } from '@/lib/auth/api-auth';
 
 export async function POST(request: NextRequest) {
+    // 1. Verify Authentication
+    const decodedToken = await verifyAuth(request);
+    if (!decodedToken) {
+        return unauthorizedResponse();
+    }
+
     try {
+        // 2. Verify Role (Must be superadmin)
+        // We fetch the user document to check the role, as custom claims might not be set or up to date
+        const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
+        const userData = userDoc.data();
+
+        if (!userData || userData.role !== 'superadmin') {
+            return NextResponse.json(
+                { error: 'Forbidden: Insufficient permissions' },
+                { status: 403 }
+            );
+        }
+
         const { uid, action } = await request.json();
 
         if (!uid || !action) {
             return NextResponse.json({ error: 'UID and action are required' }, { status: 400 });
         }
-
-        // Verify the requester is a superadmin (You might want to add a middleware or check the token here for extra security)
-        // For now, we assume the client-side protection + this being an internal tool is "okay", 
-        // but ideally we should verify the Authorization header token claims.
 
         let status = 'active';
         let disabled = false;
@@ -33,10 +48,10 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
         }
 
-        // 1. Update Firebase Auth
+        // 3. Update Firebase Auth
         await adminAuth.updateUser(uid, { disabled });
 
-        // 2. Update Firestore
+        // 4. Update Firestore
         await adminDb.collection('users').doc(uid).update({
             status: status
         });

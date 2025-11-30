@@ -1,10 +1,11 @@
 // Ticket validation utilities for check-in
 
-import { collection, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, updateDoc, getDoc, setDoc, increment, serverTimestamp, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import { verifyTicketSignature, parseSecureTicketId, parseQRPayload, verifyQRPayload } from '../ticketSecurity';
 import { ValidationResult } from '../../types/user';
 import { logScanAttempt } from '../audit/scanLogger';
+import { Event } from '../../types/event';
 
 /**
  * Validate a scanned ticket and perform check-in
@@ -41,31 +42,13 @@ export async function validateAndCheckIn(
 
         // Handle based on format
         if ('legacy' in parsedQR) {
-            // Legacy format: "POS-ABC123-SIGNATURE"
             isLegacy = true;
             ticketIdToFind = parsedQR.ticketId;
-
-            // Basic format check for legacy
             const parts = ticketIdToFind.split('-');
             if (parts.length < 4) {
-                await logScanAttempt({
-                    ticketId: ticketIdToFind,
-                    eventId,
-                    scannerId: staffUid,
-                    scannerName: staffName,
-                    result: 'format_error',
-                    failureReason: 'Formato legacy inválido',
-                    metadata: { isLegacyQR: true }
-                });
-
-                return {
-                    status: 'INVALID',
-                    message: 'Formato de ticket inválido (Legacy)',
-                };
+                return { status: 'INVALID', message: 'Formato de ticket inválido (Legacy)' };
             }
         } else {
-            // New JSON format
-            // Verify Event ID matches immediately
             if (parsedQR.eId !== eventId) {
                 await logScanAttempt({
                     ticketId: parsedQR.tId,
@@ -76,78 +59,58 @@ export async function validateAndCheckIn(
                     failureReason: `Ticket para evento ${parsedQR.eId}`,
                     metadata: { isLegacyQR: false }
                 });
-
-                return {
-                    status: 'INVALID',
-                    message: 'Este ticket pertenece a otro evento',
-                };
+                return { status: 'INVALID', message: 'Este ticket pertenece a otro evento' };
             }
-
-            // Reconstruct the full ticket ID for lookup (baseId + signature)
             ticketIdToFind = `${parsedQR.tId}-${parsedQR.s}`;
         }
 
-        // 2. Query Firestore for this ticket
-        const eventsRef = collection(db, 'events');
-        const eventDoc = await getDocs(query(eventsRef, where('__name__', '==', eventId)));
+        // 2. Check Subcollection First (Fast Path)
+        const attendeeRef = doc(db, 'events', eventId, 'attendees', ticketIdToFind);
+        const attendeeDoc = await getDoc(attendeeRef);
 
-        if (eventDoc.empty) {
-            await logScanAttempt({
-                ticketId: ticketIdToFind,
-                eventId,
-                scannerId: staffUid,
-                scannerName: staffName,
-                result: 'wrong_event',
-                failureReason: 'Evento no existe en BD',
-                metadata: { isLegacyQR: isLegacy }
-            });
+        let attendee: any = null;
+        let source: 'subcollection' | 'legacy' = 'subcollection';
+        let eventData: Event | null = null;
 
-            return {
-                status: 'INVALID',
-                message: 'Evento no encontrado',
-            };
+        if (attendeeDoc.exists()) {
+            attendee = attendeeDoc.data();
+        } else {
+            // 3. Fallback to Legacy Array (Slow Path)
+            source = 'legacy';
+            const eventRef = doc(db, 'events', eventId);
+            const eventDoc = await getDoc(eventRef);
+
+            if (!eventDoc.exists()) {
+                return { status: 'INVALID', message: 'Evento no encontrado' };
+            }
+
+            eventData = eventDoc.data() as Event;
+            const legacyAttendees = eventData.distribution?.uploadedGuests || [];
+            attendee = legacyAttendees.find((a: any) => a.ticketId === ticketIdToFind);
+
+            if (!attendee) {
+                await logScanAttempt({
+                    ticketId: ticketIdToFind,
+                    eventId,
+                    scannerId: staffUid,
+                    scannerName: staffName,
+                    result: 'ticket_not_found',
+                    failureReason: 'Ticket no encontrado',
+                    metadata: { isLegacyQR: isLegacy }
+                });
+                return { status: 'INVALID', message: 'Ticket no encontrado' };
+            }
         }
 
-        const eventData = eventDoc.docs[0].data();
-        const attendees = eventData.distribution?.uploadedGuests || [];
-
-        // Find attendee with this ticket ID
-        const attendeeIndex = attendees.findIndex((a: any) => a.ticketId === ticketIdToFind);
-
-        if (attendeeIndex === -1) {
-            await logScanAttempt({
-                ticketId: ticketIdToFind,
-                eventId,
-                scannerId: staffUid,
-                scannerName: staffName,
-                result: 'ticket_not_found',
-                failureReason: 'Ticket no está en lista de invitados',
-                metadata: { isLegacyQR: isLegacy }
-            });
-
-            return {
-                status: 'INVALID',
-                message: 'Ticket no encontrado en la lista de invitados',
-            };
-        }
-
-        const attendee = attendees[attendeeIndex];
-
-        // 3. Verify HMAC signature
+        // 4. Verify Signature
         let isValidSignature = false;
-
         if (isLegacy) {
             const { baseId, signature } = parseSecureTicketId(ticketIdToFind);
             isValidSignature = await verifyTicketSignature(
-                {
-                    ticketId: baseId,
-                    email: attendee.Email,
-                    eventId,
-                },
+                { ticketId: baseId, email: attendee.Email, eventId },
                 signature
             );
         } else {
-            // Verify JSON payload signature
             isValidSignature = await verifyQRPayload(parsedQR as any, attendee.Email);
         }
 
@@ -161,14 +124,10 @@ export async function validateAndCheckIn(
                 failureReason: 'Firma digital no coincide',
                 metadata: { isLegacyQR: isLegacy }
             });
-
-            return {
-                status: 'INVALID',
-                message: 'Ticket falsificado - firma inválida',
-            };
+            return { status: 'INVALID', message: 'Ticket falsificado - firma inválida' };
         }
 
-        // 4. Check if already checked in
+        // 5. Check Check-in Status
         if (attendee.checkedIn) {
             await logScanAttempt({
                 ticketId: ticketIdToFind,
@@ -185,7 +144,7 @@ export async function validateAndCheckIn(
 
             return {
                 status: 'ALREADY_CHECKED_IN',
-                message: `Ya registrado el ${new Date(attendee.checkInTime).toLocaleString('es-ES')}`,
+                message: `Ya registrado el ${new Date(attendee.checkInTime?.toDate ? attendee.checkInTime.toDate() : attendee.checkInTime).toLocaleString('es-ES')}`,
                 attendee,
                 checkInInfo: {
                     checkedIn: true,
@@ -195,20 +154,46 @@ export async function validateAndCheckIn(
             };
         }
 
-        // 5. Mark as checked in
-        attendees[attendeeIndex] = {
-            ...attendee,
-            Status: 'Ingresado', // Update status to reflect usage
-            checkedIn: true,
-            checkInTime: new Date(),
-            checkInBy: staffUid,
-        };
+        // 6. Perform Check-in (Atomic Update)
+        const checkInTime = new Date();
 
-        // Update Firestore
-        const eventDocRef = doc(db, 'events', eventId);
-        await updateDoc(eventDocRef, {
-            'distribution.uploadedGuests': attendees,
-        });
+        if (source === 'subcollection') {
+            // Simple update to subcollection
+            await updateDoc(attendeeRef, {
+                checkedIn: true,
+                checkInTime: serverTimestamp(),
+                checkInBy: staffUid,
+                Status: 'Ingresado',
+                updatedAt: serverTimestamp()
+            });
+
+            // Increment stats
+            const eventRef = doc(db, 'events', eventId);
+            await updateDoc(eventRef, {
+                "stats.checkedInCount": increment(1)
+            });
+
+        } else {
+            // Migration: Create in subcollection and mark checked in
+            // We do NOT remove from legacy array to avoid race conditions/complexity, 
+            // but we rely on subcollection being the source of truth for check-in status.
+            await setDoc(attendeeRef, {
+                ...attendee,
+                organizerId: eventData?.organizerId, // Use optional chaining or assertion
+                checkedIn: true,
+                checkInTime: serverTimestamp(),
+                checkInBy: staffUid,
+                Status: 'Ingresado',
+                migratedFromLegacy: true,
+                updatedAt: serverTimestamp()
+            });
+
+            // Increment stats
+            const eventRef = doc(db, 'events', eventId);
+            await updateDoc(eventRef, {
+                "stats.checkedInCount": increment(1)
+            });
+        }
 
         // Log success
         await logScanAttempt({
@@ -223,36 +208,19 @@ export async function validateAndCheckIn(
         return {
             status: 'VALID',
             message: '¡Check-in exitoso!',
-            attendee: attendees[attendeeIndex],
+            attendee: { ...attendee, checkedIn: true, checkInTime },
             checkInInfo: {
                 checkedIn: true,
-                checkInTime: attendees[attendeeIndex].checkInTime,
+                checkInTime: checkInTime,
                 checkInBy: staffUid,
             },
         };
+
     } catch (error) {
         console.error('Validation error:', error);
-
-        // Provide more specific error message
         let errorMessage = 'Error interno al validar ticket';
-        if (error instanceof Error) {
-            errorMessage = `Error: ${error.message}`;
-        }
-
-        await logScanAttempt({
-            ticketId: 'unknown',
-            eventId,
-            scannerId: staffUid,
-            scannerName: staffName,
-            result: 'format_error',
-            failureReason: errorMessage,
-            metadata: { error: error instanceof Error ? error.message : String(error) }
-        });
-
-        return {
-            status: 'INVALID',
-            message: errorMessage,
-        };
+        if (error instanceof Error) errorMessage = `Error: ${error.message}`;
+        return { status: 'INVALID', message: errorMessage };
     }
 }
 
@@ -261,17 +229,24 @@ export async function validateAndCheckIn(
  */
 export async function getAttendanceStats(eventId: string) {
     try {
-        const eventDoc = await getDocs(query(collection(db, 'events'), where('__name__', '==', eventId)));
+        const eventRef = doc(db, 'events', eventId);
+        const eventDoc = await getDoc(eventRef);
 
-        if (eventDoc.empty) {
-            return {
-                checkedIn: 0,
-                total: 0,
-                percentage: 0,
-            };
+        if (!eventDoc.exists()) {
+            return { checkedIn: 0, total: 0, percentage: 0 };
         }
 
-        const eventData = eventDoc.docs[0].data();
+        const eventData = eventDoc.data() as Event;
+
+        // Use stats if available
+        if (eventData.stats) {
+            const checkedIn = eventData.stats.checkedInCount || 0;
+            const total = eventData.stats.attendeesCount || eventData.stats.totalSold || 0;
+            const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0;
+            return { checkedIn, total, percentage };
+        }
+
+        // Fallback to legacy calculation
         const attendees = eventData.distribution?.uploadedGuests || [];
         const checkedInCount = attendees.filter((a: any) => a.checkedIn).length;
         const total = attendees.length;
@@ -284,10 +259,7 @@ export async function getAttendanceStats(eventId: string) {
         };
     } catch (error) {
         console.error('Error getting attendance stats:', error);
-        return {
-            checkedIn: 0,
-            total: 0,
-            percentage: 0,
-        };
+        return { checkedIn: 0, total: 0, percentage: 0 };
     }
 }
+

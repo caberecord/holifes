@@ -186,8 +186,7 @@ export default function RegisterPage() {
                             try {
                                 setIsLoading(true);
                                 await loginWithGoogle();
-                                // Redirigir al onboarding también con Google
-                                router.push("/dashboard/organizations/new");
+                                router.push("/dashboard");
                             } catch (err: any) {
                                 setError(getErrorMessage(err));
                                 setIsLoading(false);

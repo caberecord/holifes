@@ -81,7 +81,7 @@ export function TicketPricing({
                 <div className="grid md:grid-cols-2 gap-8">
                     {zones.map((zone, index) => {
                         // Calculate remaining tickets
-                        const soldCount = uploadedGuests.filter(g => g.Zone === zone.name).length;
+                        const soldCount = event?.stats?.soldByZone?.[zone.name] ?? uploadedGuests.filter(g => g.Zone === zone.name).length;
                         const remaining = zone.capacity - soldCount;
                         const isLowStock = remaining <= lowStockThreshold && remaining > 0;
                         const isSoldOut = remaining <= 0;

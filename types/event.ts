@@ -132,6 +132,15 @@ export interface Event {
         [key: string]: string | undefined;
     };
 
+    // Stats (Aggregated data for scalability)
+    stats?: {
+        totalSold: number;
+        totalRevenue: number;
+        soldByZone: Record<string, number>;
+        attendeesCount: number;
+        checkedInCount: number;
+    };
+
     // Speakers (Legacy or direct field)
     speakers?: any[];
 }

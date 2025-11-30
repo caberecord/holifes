@@ -1,80 +1,100 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getResendClient, FROM_EMAIL, APP_URL } from '@/lib/email/resend';
 import { generateTicketPDFBuffer } from '@/lib/email/generateTicketPDF';
 import { generateICS, generateEventJSONLD } from '@/lib/email/calendar';
+import { verifyAuth, unauthorizedResponse } from '@/lib/auth/api-auth';
+import rateLimit from '@/lib/rate-limit';
+
+const limiter = rateLimit({
+  interval: 60 * 1000, // 60 seconds
+  uniqueTokenPerInterval: 500, // Max 500 users per second
+});
 
 export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { tickets, email, eventName } = body;
+  // Verify Authentication
+  const user = await verifyAuth(request);
+  if (!user) {
+    return unauthorizedResponse();
+  }
 
-        if (!tickets || !Array.isArray(tickets) || tickets.length === 0 || !email) {
-            return NextResponse.json(
-                { error: 'Missing required fields (tickets array, email)' },
-                { status: 400 }
-            );
-        }
+  try {
+    await limiter.check(NextResponse.next(), 10, user.uid); // 10 requests per minute
+  } catch {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  }
 
-        console.log(`Processing batch email for ${email} with ${tickets.length} tickets`);
+  try {
+    const body = await request.json();
+    const { tickets, email, eventName } = body;
 
-        // Extract event details from the first ticket for Calendar
-        const firstTicket = tickets[0];
-        // Parse date: "DD/MM/YYYY" -> "YYYY-MM-DD" for the helper
-        // Assuming input is DD/MM/YYYY from POSModule
-        const [day, month, year] = firstTicket.eventDate.split('/');
-        const isoDate = `${year}-${month}-${day}`;
+    if (!tickets || !Array.isArray(tickets) || tickets.length === 0 || !email) {
+      return NextResponse.json(
+        { error: 'Missing required fields (tickets array, email)' },
+        { status: 400 }
+      );
+    }
 
-        const eventData = {
-            eventName: eventName,
-            location: firstTicket.eventLocation,
-            startDate: isoDate,
-            startTime: firstTicket.eventTime, // Assuming HH:mm
-            description: `Entradas para ${eventName}`
-        };
+    console.log(`Processing batch email for ${email} with ${tickets.length} tickets`);
 
-        // 1. Generate Calendar Assets
-        const icsContent = generateICS(eventData);
-        const jsonLd = generateEventJSONLD(eventData);
+    // Extract event details from the first ticket for Calendar
+    const firstTicket = tickets[0];
+    // Parse date: "DD/MM/YYYY" -> "YYYY-MM-DD" for the helper
+    // Assuming input is DD/MM/YYYY from POSModule
+    const [day, month, year] = firstTicket.eventDate.split('/');
+    const isoDate = `${year}-${month}-${day}`;
 
-        // 2. Generate PDF Attachments
-        const attachments: any[] = await Promise.all(tickets.map(async (ticket: any) => {
-            try {
-                const pdfBuffer = await generateTicketPDFBuffer({
-                    ticketId: ticket.ticketId,
-                    eventName: ticket.eventName,
-                    eventDate: ticket.eventDate,
-                    eventTime: ticket.eventTime,
-                    location: ticket.eventLocation,
-                    zone: ticket.zone,
-                    seat: ticket.seat,
-                    attendeeName: ticket.attendeeName,
-                    qrPayload: ticket.qrPayload
-                });
+    const eventData = {
+      eventName: eventName,
+      location: firstTicket.eventLocation,
+      startDate: isoDate,
+      startTime: firstTicket.eventTime, // Assuming HH:mm
+      description: `Entradas para ${eventName}`
+    };
 
-                return {
-                    filename: `Ticket-${ticket.ticketId}.pdf`,
-                    content: Buffer.from(pdfBuffer)
-                };
-            } catch (err) {
-                console.error(`Failed to generate PDF for ticket ${ticket.ticketId}:`, err);
-                return null;
-            }
-        }));
+    // 1. Generate Calendar Assets
+    const icsContent = generateICS(eventData);
+    const jsonLd = generateEventJSONLD(eventData);
 
-        // Add ICS Attachment
-        attachments.push({
-            filename: 'invite.ics',
-            content: Buffer.from(icsContent),
-            contentType: 'text/calendar'
+    // 2. Generate PDF Attachments
+    const attachments: any[] = await Promise.all(tickets.map(async (ticket: any) => {
+      try {
+        const pdfBuffer = await generateTicketPDFBuffer({
+          ticketId: ticket.ticketId,
+          eventName: ticket.eventName,
+          eventDate: ticket.eventDate,
+          eventTime: ticket.eventTime,
+          location: ticket.eventLocation,
+          zone: ticket.zone,
+          seat: ticket.seat,
+          attendeeName: ticket.attendeeName,
+          qrPayload: ticket.qrPayload
         });
 
-        // Filter out failed PDFs
-        const validAttachments = attachments.filter(a => a !== null);
+        return {
+          filename: `Ticket-${ticket.ticketId}.pdf`,
+          content: Buffer.from(pdfBuffer)
+        };
+      } catch (err) {
+        console.error(`Failed to generate PDF for ticket ${ticket.ticketId}:`, err);
+        return null;
+      }
+    }));
 
-        // 3. Build Consolidated HTML
-        const ticketsHtml = tickets.map((ticket: any) => {
-            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(ticket.qrPayload || ticket.ticketId)}`;
-            return `
+    // Add ICS Attachment
+    attachments.push({
+      filename: 'invite.ics',
+      content: Buffer.from(icsContent),
+      contentType: 'text/calendar'
+    });
+
+    // Filter out failed PDFs
+    const validAttachments = attachments.filter(a => a !== null);
+
+    // 3. Build Consolidated HTML
+    const ticketsHtml = tickets.map((ticket: any) => {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(ticket.qrPayload || ticket.ticketId)}`;
+      return `
             <div style="border: 1px solid #e5e7eb; border-radius: 16px; padding: 30px; margin-bottom: 30px; background: #ffffff; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
                 <h3 style="margin: 0 0 10px 0; color: #4f46e5; font-size: 20px; text-transform: uppercase; letter-spacing: 0.5px;">${ticket.eventName}</h3>
                 
@@ -89,9 +109,9 @@ export async function POST(request: NextRequest) {
                 </div>
             </div>
             `;
-        }).join('');
+    }).join('');
 
-        const htmlContent = `
+    const htmlContent = `
         <!DOCTYPE html>
         <html>
           <head>
@@ -147,31 +167,31 @@ export async function POST(request: NextRequest) {
         </html>
         `;
 
-        // 4. Send Email via Resend
-        const resend = getResendClient();
-        const senderEmail = process.env.RESEND_FROM_EMAIL || FROM_EMAIL;
+    // 4. Send Email via Resend
+    const resend = getResendClient();
+    const senderEmail = process.env.RESEND_FROM_EMAIL || FROM_EMAIL;
 
-        const { data, error } = await resend.emails.send({
-            from: senderEmail,
-            to: email,
-            subject: `🎟️ Tus entradas para ${eventName}`,
-            html: htmlContent,
-            attachments: validAttachments
-        });
+    const { data, error } = await resend.emails.send({
+      from: senderEmail,
+      to: email,
+      subject: `🎟️ Tus entradas para ${eventName}`,
+      html: htmlContent,
+      attachments: validAttachments
+    });
 
-        if (error) {
-            console.error('❌ Resend Batch API Error:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-
-        console.log(`Batch email sent to ${email}`);
-        return NextResponse.json({ success: true, count: tickets.length });
-
-    } catch (error: any) {
-        console.error('Error in batch ticket route:', error);
-        return NextResponse.json(
-            { error: error.message || 'Failed to send batch tickets' },
-            { status: 500 }
-        );
+    if (error) {
+      console.error('❌ Resend Batch API Error:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    console.log(`Batch email sent to ${email}`);
+    return NextResponse.json({ success: true, count: tickets.length });
+
+  } catch (error: any) {
+    console.error('Error in batch ticket route:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to send batch tickets' },
+      { status: 500 }
+    );
+  }
 }

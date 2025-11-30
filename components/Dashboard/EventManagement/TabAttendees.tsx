@@ -2,7 +2,7 @@
 import { Event } from "../../../types/event";
 import { Search, Download, Filter, MoreHorizontal, Upload, Ticket, Plus, FileSpreadsheet, Check, X, Eye, Info, Printer, Mail } from "lucide-react";
 import { useState, useEffect } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, collection, getDocs, setDoc, increment, serverTimestamp, writeBatch } from "firebase/firestore";
 import { db } from "../../../lib/firebase";
 import * as XLSX from 'xlsx';
 import { generateSecureTicketId, generateQRPayload } from "../../../lib/ticketSecurity";
@@ -17,7 +17,38 @@ interface TabAttendeesProps {
 export default function TabAttendees({ event }: TabAttendeesProps) {
     const { user } = useAuth();
     const [activeView, setActiveView] = useState<"list" | "generate">("list");
-    const [attendees, setAttendees] = useState<any[]>(event.distribution?.uploadedGuests || []);
+    const [attendees, setAttendees] = useState<any[]>([]);
+    const [isLoadingAttendees, setIsLoadingAttendees] = useState(true);
+
+    // Fetch attendees from subcollection and merge with legacy
+    useEffect(() => {
+        const fetchAttendees = async () => {
+            if (!event.id) return;
+            setIsLoadingAttendees(true);
+            try {
+                // 1. Fetch from subcollection
+                const attendeesRef = collection(db, "events", event.id, "attendees");
+                const snapshot = await getDocs(attendeesRef);
+                const newAttendees = snapshot.docs.map(doc => doc.data());
+
+                // 2. Get legacy attendees
+                const legacyAttendees = event.distribution?.uploadedGuests || [];
+
+                // 3. Merge and Deduplicate (prefer subcollection)
+                const attendeesMap = new Map();
+                legacyAttendees.forEach(a => attendeesMap.set(a.ticketId, a));
+                newAttendees.forEach(a => attendeesMap.set(a.ticketId, a));
+
+                setAttendees(Array.from(attendeesMap.values()));
+            } catch (error) {
+                console.error("Error fetching attendees:", error);
+            } finally {
+                setIsLoadingAttendees(false);
+            }
+        };
+
+        fetchAttendees();
+    }, [event.id, event.distribution?.uploadedGuests]);
     const [isUploading, setIsUploading] = useState(false);
     const [showTicketModal, setShowTicketModal] = useState<any | null>(null);
     const [editingAttendee, setEditingAttendee] = useState<any | null>(null);
@@ -98,17 +129,43 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
 
                 // Update in Firestore
                 if (event.id) {
+                    const batch = writeBatch(db);
                     const eventRef = doc(db, "events", event.id);
-                    await updateDoc(eventRef, {
-                        "distribution.uploadedGuests": updatedAttendees
+
+                    // 1. Add to subcollection
+                    newAttendees.forEach(attendee => {
+                        const attendeeRef = doc(collection(db, "events", event.id!, "attendees"), attendee.ticketId);
+                        batch.set(attendeeRef, {
+                            ...attendee,
+                            organizerId: event.organizerId,
+                            createdAt: serverTimestamp(),
+                            updatedAt: serverTimestamp()
+                        });
                     });
+
+                    // 2. Update stats
+                    const zoneCounts: Record<string, number> = {};
+                    newAttendees.forEach(a => {
+                        zoneCounts[a.Zone] = (zoneCounts[a.Zone] || 0) + 1;
+                    });
+
+                    const statsUpdate: any = {
+                        "stats.totalSold": increment(newAttendees.length),
+                        "stats.attendeesCount": increment(newAttendees.length)
+                    };
+                    Object.entries(zoneCounts).forEach(([zone, count]) => {
+                        statsUpdate[`stats.soldByZone.${zone}`] = increment(count);
+                    });
+
+                    batch.update(eventRef, statsUpdate);
+                    await batch.commit();
                 }
 
                 alert(`Se importaron ${newAttendees.length} asistentes correctamente.`);
                 setActiveView("list");
             } catch (error) {
-                console.error("Error parsing Excel:", error);
-                alert("Error al procesar el archivo Excel. Verifica el formato.");
+                console.error("Error processing file:", error);
+                alert("Error al procesar el archivo.");
             } finally {
                 setIsUploading(false);
             }
@@ -122,114 +179,140 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
             return;
         }
 
-        // Generate base ticket ID
-        const uniqueSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
-        const timestamp = Date.now().toString(36).toUpperCase();
-        const baseTicketId = `TKT-${timestamp}-${uniqueSuffix}`;
+        try {
+            const uniqueSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
+            const timestamp = Date.now().toString(36).toUpperCase();
+            const baseTicketId = `TKT-${timestamp}-${uniqueSuffix}`;
 
-        // Generate HMAC-signed ticket ID
-        const secureTicketId = await generateSecureTicketId(
-            baseTicketId,
-            manualEmail,
-            event.id || "unknown"
-        );
+            const secureTicketId = await generateSecureTicketId(baseTicketId, manualEmail, event.id || "unknown");
+            const qrPayload = await generateQRPayload(baseTicketId, event.id || "unknown", manualEmail);
 
-        // Generate JSON QR payload
-        const qrPayload = await generateQRPayload(
-            baseTicketId,
-            event.id || "unknown",
-            manualEmail
-        );
+            const newAttendee = {
+                id: Date.now(),
+                Name: manualName,
+                Email: manualEmail,
+                Zone: manualZone || "General",
+                Seat: manualSeat || "",
+                Status: "Activo",
+                ticketId: secureTicketId,
+                qrPayload: qrPayload,
+                checkedIn: false,
+                checkInTime: null,
+                checkInBy: null
+            };
 
-        const newAttendee = {
-            id: Date.now(),
-            Name: manualName,
-            Email: manualEmail,
-            Zone: manualZone || "General",
-            Seat: manualSeat || "",
-            Status: "Activo", // Changed to Activo
-            ticketId: secureTicketId,
-            qrPayload: qrPayload,
-            checkedIn: false,
-            checkInTime: null,
-            checkInBy: null
-        };
+            setAttendees([...attendees, newAttendee]);
 
-        const updatedAttendees = [...attendees, newAttendee];
-        setAttendees(updatedAttendees);
-
-        // Update in Firestore
-        if (event.id) {
-            try {
+            if (event.id) {
+                const batch = writeBatch(db);
                 const eventRef = doc(db, "events", event.id);
-                await updateDoc(eventRef, {
-                    "distribution.uploadedGuests": updatedAttendees
+                const attendeeRef = doc(collection(db, "events", event.id, "attendees"), secureTicketId);
+
+                batch.set(attendeeRef, {
+                    ...newAttendee,
+                    organizerId: event.organizerId,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
                 });
-                alert("Asistente agregado correctamente");
-                // Reset form
-                setManualName("");
-                setManualEmail("");
-                setManualZone("");
-                setManualSeat("");
-            } catch (error) {
-                console.error("Error saving attendee:", error);
-                alert("Error al guardar el asistente");
+
+                batch.update(eventRef, {
+                    "stats.totalSold": increment(1),
+                    "stats.attendeesCount": increment(1),
+                    [`stats.soldByZone.${newAttendee.Zone}`]: increment(1)
+                });
+
+                await batch.commit();
             }
+
+            // Generate PDF for this single ticket
+            const ticketData = {
+                ticketId: newAttendee.ticketId,
+                eventName: event.name,
+                eventDate: event.date,
+                eventTime: event.startTime,
+                location: event.location,
+                zone: newAttendee.Zone,
+                seat: newAttendee.Seat,
+                attendeeName: newAttendee.Name
+            };
+            generateTicketsPDF([ticketData], `${event.name}-${newAttendee.Name}-ticket.pdf`);
+
+            alert("Asistente agregado correctamente");
+            setManualName("");
+            setManualEmail("");
+            setManualZone("");
+            setManualSeat("");
+            setActiveView("list");
+
+        } catch (error) {
+            console.error("Error adding attendee:", error);
+            alert("Error al agregar asistente");
         }
     };
 
     const handleGenerateGenericTickets = async () => {
         const count = parseInt(genericCount);
-        if (!count || count <= 0 || count > 10000) {
-            alert("Ingresa una cantidad válida (1-10000)");
-            return;
-        }
+        if (isNaN(count) || count <= 0) return;
 
         setIsGeneratingGeneric(true);
         try {
-            const tickets = await generateGenericTickets(count, {
+            const newTickets = await generateGenericTickets(count, {
                 name: event.name,
                 date: event.date,
-                startTime: event.startTime || "",
+                startTime: event.startTime,
                 location: event.location,
                 id: event.id || "unknown"
             });
 
-            // Convert tickets to attendee format and add to list
-            const newAttendees = tickets.map((ticket, index) => ({
-                id: Date.now() + index,
-                Name: `Ticket Genérico #${index + 1}`,
-                Email: `generic-${index + 1}@event.local`,
-                Zone: ticket.zone || "General",
-                Seat: ticket.seat || "",
-                Status: "Activo", // Changed to Activo
-                ticketId: ticket.ticketId,
-                isGeneric: true,
+            // Add to state and DB
+            const newAttendees = newTickets.map(t => ({
+                id: Date.now() + Math.random(),
+                Name: "Invitado Genérico",
+                Email: "",
+                Zone: "General",
+                Seat: "",
+                Status: "Activo",
+                ticketId: t.ticketId,
+                qrPayload: t.ticketId,
                 checkedIn: false,
                 checkInTime: null,
                 checkInBy: null
             }));
 
-            const updatedAttendees = [...attendees, ...newAttendees];
-            setAttendees(updatedAttendees);
+            setAttendees([...attendees, ...newAttendees]);
 
-            // Save to Firestore
             if (event.id) {
+                const batch = writeBatch(db);
                 const eventRef = doc(db, "events", event.id);
-                await updateDoc(eventRef, {
-                    "distribution.uploadedGuests": updatedAttendees
+
+                newAttendees.forEach(a => {
+                    const attendeeRef = doc(collection(db, "events", event.id!, "attendees"), a.ticketId);
+                    batch.set(attendeeRef, {
+                        ...a,
+                        organizerId: event.organizerId,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp()
+                    });
                 });
+
+                batch.update(eventRef, {
+                    "stats.totalSold": increment(count),
+                    "stats.attendeesCount": increment(count),
+                    "stats.soldByZone.General": increment(count)
+                });
+
+                await batch.commit();
             }
 
-            // Generate and download PDF
-            generateTicketsPDF(tickets, `${event.name}-tickets.pdf`);
+            generateTicketsPDF(newTickets, `${event.name}-generic-tickets.pdf`);
 
-            alert(`Se generaron ${count} boletos genéricos correctamente y se agregaron a la lista.`);
+            alert(`Se generaron ${count} tickets genéricos correctamente.`);
             setGenericCount("");
             setActiveView("list");
+
         } catch (error) {
             console.error("Error generating generic tickets:", error);
-            alert("Error al generar los boletos.");
+            alert("Error al generar tickets");
         } finally {
             setIsGeneratingGeneric(false);
         }
@@ -246,10 +329,13 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
             setAttendees(updatedList);
 
             if (event.id) {
-                const eventRef = doc(db, "events", event.id);
-                await updateDoc(eventRef, {
-                    "distribution.uploadedGuests": updatedList
-                });
+                // Update subcollection document
+                const attendeeRef = doc(db, "events", event.id, "attendees", editingAttendee.ticketId);
+                await setDoc(attendeeRef, {
+                    ...editingAttendee,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+
                 alert("Asistente actualizado correctamente");
                 setEditingAttendee(null);
             }
@@ -346,9 +432,9 @@ export default function TabAttendees({ event }: TabAttendeesProps) {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${attendee.Status === 'Ingresado' ? 'bg-blue-100 text-blue-800' :
-                                                    attendee.Status === 'Activo' ? 'bg-yellow-100 text-yellow-800' :
-                                                        attendee.Status === 'Confirmado' ? 'bg-green-100 text-green-800' :
-                                                            'bg-gray-100 text-gray-800'
+                                                attendee.Status === 'Activo' ? 'bg-yellow-100 text-yellow-800' :
+                                                    attendee.Status === 'Confirmado' ? 'bg-green-100 text-green-800' :
+                                                        'bg-gray-100 text-gray-800'
                                                 }`}>
                                                 {attendee.Status || "Registrado"}
                                             </span>
