@@ -39,18 +39,34 @@ export const AddMemberModal = ({ isOpen, onClose, onInvite, organizerId, organiz
     const loadOrganizerEvents = async () => {
         setLoadingEvents(true);
         try {
-            // TODO: Ideally query by organizationId if events are migrated, 
-            // but for now falling back to organizerId (createdBy) or organizationId check
-            const q = query(
+            // Fetch events by organizationId
+            const qOrg = query(
                 collection(db, "events"),
                 where("organizationId", "==", organizationId)
             );
-            const querySnapshot = await getDocs(q);
-            const eventsList: Event[] = [];
-            querySnapshot.forEach((doc) => {
-                eventsList.push({ id: doc.id, ...doc.data() } as Event);
+
+            // Fetch events by organizerId (legacy support)
+            const qOrganizer = query(
+                collection(db, "events"),
+                where("organizerId", "==", organizerId)
+            );
+
+            const [snapshotOrg, snapshotOrganizer] = await Promise.all([
+                getDocs(qOrg),
+                getDocs(qOrganizer)
+            ]);
+
+            const eventsMap = new Map<string, Event>();
+
+            snapshotOrg.forEach((doc) => {
+                eventsMap.set(doc.id, { id: doc.id, ...doc.data() } as Event);
             });
-            setEvents(eventsList);
+
+            snapshotOrganizer.forEach((doc) => {
+                eventsMap.set(doc.id, { id: doc.id, ...doc.data() } as Event);
+            });
+
+            setEvents(Array.from(eventsMap.values()));
         } catch (error) {
             console.error("Error loading events:", error);
         } finally {
