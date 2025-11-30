@@ -17,6 +17,9 @@ export const OrganizationSchema = z.object({
         logoUrl: z.union([z.string().url(), z.literal('')]).optional(),
         primaryColor: z.string().optional(), // Hex color for branding
         website: z.union([z.string().url(), z.literal('')]).optional(),
+        currency: z.string().default('USD'), // e.g. 'USD', 'COP'
+        timezone: z.string().default('UTC'), // e.g. 'America/Bogota'
+        defaultLocale: z.string().default('es'), // e.g. 'es', 'en'
     }).optional(),
 
     // Enterprise Features

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { X, Shield, CreditCard, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useTranslations } from 'next-intl';
 
 // --- COMPONENTE LOGO ---
 import { Nunito } from "next/font/google";
@@ -120,19 +121,20 @@ interface SidebarProps {
     onClose: () => void;
 }
 
-const navigation = [
-    { name: "Dashboard", href: "/dashboard", icon: Icons.Dashboard, roleRequired: null },
-    { name: "Mis Eventos", href: "/dashboard/events", icon: Icons.Calendar, roleRequired: null },
-    { name: "Punto de Venta", href: "/dashboard/sales", icon: () => <CreditCard className="w-5 h-5" />, roleRequired: null },
-    { name: "Contactos", href: "/dashboard/contacts", icon: Icons.Users, roleRequired: null },
-    { name: "Finanzas", href: "/dashboard/finance", icon: Icons.Wallet, roleRequired: null },
-    { name: "Configuración", href: "/dashboard/settings", icon: Icons.Settings, roleRequired: null },
-];
-
 export default function Sidebar({ isMobileOpen, onClose }: SidebarProps) {
     const pathname = usePathname();
     const { user, appUser, isOrganizer, isStaff, logout } = useAuth();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const t = useTranslations('Sidebar');
+
+    const navigation = [
+        { name: t('dashboard'), href: "/dashboard", icon: Icons.Dashboard, roleRequired: null },
+        { name: t('myEvents'), href: "/dashboard/events", icon: Icons.Calendar, roleRequired: null },
+        { name: t('pos'), href: "/dashboard/sales", icon: () => <CreditCard className="w-5 h-5" />, roleRequired: null },
+        { name: t('contacts'), href: "/dashboard/contacts", icon: Icons.Users, roleRequired: null },
+        { name: t('finance'), href: "/dashboard/finance", icon: Icons.Wallet, roleRequired: null },
+        { name: t('settings'), href: "/dashboard/settings", icon: Icons.Settings, roleRequired: null },
+    ];
 
     return (
         <>
@@ -208,16 +210,16 @@ export default function Sidebar({ isMobileOpen, onClose }: SidebarProps) {
                     {appUser?.role === 'superadmin' && (
                         <div className="mt-4 pt-4 border-t border-gray-200">
                             <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                                Administración
+                                {t('administration')}
                             </p>
                             <Link
                                 href="/admin"
                                 onClick={() => onClose()}
-                                title={isCollapsed ? "Super Admin" : ""}
+                                title={isCollapsed ? t('superAdmin') : ""}
                                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-all duration-150 ${isCollapsed ? 'justify-center' : ''}`}
                             >
                                 <Shield className="w-5 h-5" />
-                                {!isCollapsed && <span>Super Admin</span>}
+                                {!isCollapsed && <span>{t('superAdmin')}</span>}
                             </Link>
                         </div>
                     )}
@@ -245,9 +247,9 @@ export default function Sidebar({ isMobileOpen, onClose }: SidebarProps) {
                             <>
                                 <div className="flex-1 overflow-hidden transition-opacity duration-300">
                                     <p className="truncate text-sm font-medium text-gray-900">
-                                        {user?.email?.split('@')[0] || "Usuario"}
+                                        {user?.email?.split('@')[0] || t('user')}
                                     </p>
-                                    <p className="truncate text-xs text-gray-500">Organizador Pro</p>
+                                    <p className="truncate text-xs text-gray-500">{t('organizerPro')}</p>
                                 </div>
                                 <button
                                     onClick={(e) => {
@@ -256,7 +258,7 @@ export default function Sidebar({ isMobileOpen, onClose }: SidebarProps) {
                                         logout();
                                     }}
                                     className="text-gray-400 hover:text-red-500 transition-colors"
-                                    title="Cerrar Sesión"
+                                    title={t('logout')}
                                 >
                                     <Icons.LogOut />
                                 </button>

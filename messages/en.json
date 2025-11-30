@@ -1,0 +1,290 @@
+{
+    "LocaleSwitcher": {
+        "label": "Change language"
+    },
+    "HomePage": {
+        "title": "Hello world",
+        "welcome": "Welcome to Holifes",
+        "hero": {
+            "title": "Manage your <span>events</span> professionally",
+            "subtitle": "Complete platform to create, promote, and manage successful events. Sell tickets, control access, and analyze results in real-time.",
+            "startFree": "Start for Free",
+            "viewDemo": "View Demo",
+            "features": "✨ No credit card required • 🚀 5-minute setup"
+        },
+        "features": {
+            "title": "Everything you need for your events",
+            "subtitle": "Professional tools to manage every aspect of your events",
+            "items": {
+                "ticketing": {
+                    "title": "Ticket Sales",
+                    "description": "Complete ticketing system with multiple ticket types and discounts."
+                },
+                "analytics": {
+                    "title": "Real-time Analytics",
+                    "description": "Dashboard with metrics and statistics to make informed decisions."
+                },
+                "qr": {
+                    "title": "QR Tickets",
+                    "description": "Automatically generate tickets with unique QR codes for each attendee."
+                },
+                "scanner": {
+                    "title": "Validation Scanner",
+                    "description": "Validate tickets instantly with our real-time QR scanner app."
+                },
+                "payments": {
+                    "title": "Integrated Payments",
+                    "description": "Process payments securely with Stripe and receive money directly."
+                },
+                "email": {
+                    "title": "Automated Email",
+                    "description": "Send confirmations with QR tickets and reminders automatically."
+                }
+            }
+        },
+        "pricing": {
+            "title": "Transparent and flexible pricing",
+            "subtitle": "Choose the plan that best fits your needs",
+            "plans": {
+                "freemium": {
+                    "name": "Freemium A",
+                    "description": "Ideal for small and free events.",
+                    "features": {
+                        "tickets": "Up to {maxTickets} tickets",
+                        "events": "{maxEvents} event per month",
+                        "scanner": "Validation scanner"
+                    }
+                },
+                "pro": {
+                    "name": "Pro",
+                    "description": "For growing events with ticket sales.",
+                    "priceLabel": "Per ticket sold",
+                    "mostPopular": "Most Popular",
+                    "features": {
+                        "unlimitedEvents": "Unlimited events",
+                        "unlimitedTickets": "Unlimited tickets",
+                        "stripe": "Payments with Stripe"
+                    }
+                },
+                "enterprise": {
+                    "name": "Enterprise",
+                    "price": "Custom",
+                    "description": "Tailored solutions for large organizers.",
+                    "features": {
+                        "whiteLabel": "White label",
+                        "support": "24/7 Support"
+                    }
+                }
+            },
+            "cta": {
+                "startFree": "Start for Free",
+                "startNow": "Start Now",
+                "contactSales": "Contact Sales"
+            }
+        },
+        "stats": {
+            "eventsCreated": "Events Created",
+            "ticketsSold": "Tickets Sold",
+            "satisfaction": "Satisfaction",
+            "support": "Support"
+        },
+        "cta": {
+            "title": "Ready to create your next event?",
+            "subtitle": "Join thousands of organizers who trust Holifes to manage their events",
+            "button": "Start for Free Now"
+        }
+    },
+    "Auth": {
+        "login": "Login",
+        "register": "Register",
+        "welcomeBack": "Welcome back",
+        "loginSubtitle": "Sign in to manage your events",
+        "continueWithGoogle": "Continue with Google",
+        "orLoginWithEmail": "Or sign in with email",
+        "emailLabel": "Email address",
+        "emailPlaceholder": "you@example.com",
+        "passwordLabel": "Password",
+        "passwordPlaceholder": "Your password",
+        "loggingIn": "Signing in...",
+        "loginButton": "Sign In",
+        "noAccountRegister": "Don't have an account? Register",
+        "createAccount": "Create your account",
+        "registerSubtitle": "Start organizing amazing events",
+        "registerWithGoogle": "Sign up with Google",
+        "orRegisterWithEmail": "Or sign up with email",
+        "fullNameLabel": "Full Name",
+        "fullNamePlaceholder": "Your full name",
+        "phoneLabel": "Phone/Mobile",
+        "optional": "(optional)",
+        "confirmPasswordLabel": "Confirm Password",
+        "confirmPasswordPlaceholder": "Repeat your password",
+        "registering": "Registering...",
+        "registerAction": "Sign Up",
+        "alreadyHaveAccount": "Already have an account? Sign In",
+        "validation": {
+            "nameRequired": "Please enter your full name",
+            "emailRequired": "Please enter your email address",
+            "passwordLength": "Password must be at least 6 characters",
+            "passwordMismatch": "Passwords do not match"
+        },
+        "errors": {
+            "invalidCredential": "Incorrect email or password. Please check and try again.",
+            "userNotFound": "No account found with this email address.",
+            "wrongPassword": "Incorrect password. Please check and try again.",
+            "invalidEmail": "Invalid email address.",
+            "userDisabled": "This account has been disabled.",
+            "tooManyRequests": "Too many failed attempts. Please wait a few minutes and try again.",
+            "networkRequestFailed": "Connection error. Please check your internet and try again.",
+            "generic": "An error occurred while signing in. Please try again.",
+            "emailInUse": "This email is already registered. Please sign in or use another email.",
+            "operationNotAllowed": "User registration is temporarily disabled.",
+            "weakPassword": "Password is too weak. It must be at least 6 characters.",
+            "requiresRecentLogin": "For security, you need to sign in again.",
+            "permissionDenied": "You do not have permission to perform this action.",
+            "unavailable": "Service temporarily unavailable. Please try again later.",
+            "genericRegister": "An error occurred while creating the account. Please try again."
+        }
+    },
+    "Sidebar": {
+        "dashboard": "Dashboard",
+        "myEvents": "My Events",
+        "pos": "Point of Sale",
+        "contacts": "Contacts",
+        "finance": "Finance",
+        "settings": "Settings",
+        "administration": "Administration",
+        "superAdmin": "Super Admin",
+        "organizerPro": "Organizer Pro",
+        "logout": "Logout",
+        "user": "User"
+    },
+    "Events": {
+        "loading": "Loading events...",
+        "emptyState": {
+            "title": "Start your first event",
+            "description": "You don't have any active events yet. Create a new one to start managing attendees, selling tickets, and controlling access.",
+            "createButton": "Create New Event",
+            "tutorialButton": "Watch quick tutorial"
+        },
+        "features": {
+            "securePayments": "Secure Payments",
+            "qrCheckin": "QR Check-in",
+            "realTimeAnalytics": "Real-time Analytics"
+        },
+        "table": {
+            "event": "Event",
+            "date": "Date",
+            "location": "Location",
+            "status": "Status",
+            "manage": "Manage"
+        },
+        "status": {
+            "published": "Published",
+            "draft": "Draft"
+        }
+    },
+    "TopBar": {
+        "headers": {
+            "profile": {
+                "title": "My Profile",
+                "subtitle": "Update your personal information and security."
+            },
+            "team": {
+                "title": "Team",
+                "subtitle": "Manage your organization members."
+            },
+            "organization": {
+                "title": "Organization",
+                "subtitle": "Configure your company information."
+            },
+            "account": {
+                "title": "Account",
+                "subtitle": "Manage your plan and billing."
+            },
+            "integrations": {
+                "title": "Integrations",
+                "subtitle": "Connect external tools."
+            },
+            "settings": {
+                "title": "Settings",
+                "subtitle": "Manage all aspects of your organization and account."
+            },
+            "events": {
+                "title": "My Events",
+                "subtitle": "Manage your events and sales."
+            },
+            "pos": {
+                "title": "Point of Sale",
+                "subtitle": "Sales and order terminal."
+            },
+            "contacts": {
+                "title": "Contacts",
+                "subtitle": "Manage your customer database."
+            },
+            "finance": {
+                "title": "Finance",
+                "subtitle": "Income and movement summary."
+            },
+            "dashboard": {
+                "title": "Dashboard",
+                "subtitle": ""
+            }
+        },
+        "filters": {
+            "allTime": "All Time",
+            "thisWeek": "This Week",
+            "thisMonth": "This Month",
+            "thisQuarter": "This Quarter",
+            "thisYear": "This Year"
+        },
+        "searchPlaceholder": "Search event...",
+        "createEvent": "Create Event"
+    },
+    "EventForm": {
+        "nameLabel": "Event Name",
+        "namePlaceholder": "Ex: Tech Conference 2025",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Event details...",
+        "dateLabel": "Date",
+        "startTimeLabel": "Start Time",
+        "endTimeLabel": "End Time",
+        "locationLabel": "Location",
+        "locationPlaceholder": "Ex: Convention Center",
+        "capacityLabel": "Max Capacity",
+        "priceLabel": "Price ($)",
+        "saveError": "Error saving event: ",
+        "cancelButton": "Cancel",
+        "savingButton": "Saving...",
+        "updateButton": "Update Event",
+        "createButton": "Create Event"
+    },
+    "DashboardLayout": {
+        "loading": "Loading..."
+    },
+    "DashboardStats": {
+        "loading": "Loading dashboard...",
+        "metrics": {
+            "totalRevenue": "Total Revenue",
+            "ticketsSold": "Tickets Sold",
+            "activeEvents": "Active Events",
+            "avgTicket": "Avg. Ticket"
+        },
+        "chart": {
+            "title": "Sales Performance",
+            "subtitle": "Revenue in selected period",
+            "labels": {
+                "noData": "No data"
+            },
+            "datasets": {
+                "revenue": "Revenue"
+            }
+        },
+        "activity": {
+            "title": "Recent Activity",
+            "boughtTicket": "bought ticket",
+            "unknownUser": "User",
+            "unknownEvent": "Unknown Event",
+            "noActivity": "No activity in this period"
+        }
+    }
+}

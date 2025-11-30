@@ -1,0 +1,290 @@
+{
+    "LocaleSwitcher": {
+        "label": "Alterar idioma"
+    },
+    "HomePage": {
+        "title": "Olá mundo",
+        "welcome": "Bem-vindo à Holifes",
+        "hero": {
+            "title": "Gerencie seus <span>eventos</span> profissionalmente",
+            "subtitle": "Plataforma completa para criar, promover e gerenciar eventos de sucesso. Venda ingressos, controle o acesso e analise resultados em tempo real.",
+            "startFree": "Começar Grátis",
+            "viewDemo": "Ver Demo",
+            "features": "✨ Sem cartão de crédito • 🚀 Configuração em 5 minutos"
+        },
+        "features": {
+            "title": "Tudo o que você precisa para seus eventos",
+            "subtitle": "Ferramentas profissionais para gerenciar cada aspecto de seus eventos",
+            "items": {
+                "ticketing": {
+                    "title": "Venda de Ingressos",
+                    "description": "Sistema completo de venda de ingressos com múltiplos tipos e descontos."
+                },
+                "analytics": {
+                    "title": "Análise em Tempo Real",
+                    "description": "Dashboard com métricas e estatísticas para tomar decisões informadas."
+                },
+                "qr": {
+                    "title": "Ingressos com QR",
+                    "description": "Gere ingressos com código QR único para cada participante automaticamente."
+                },
+                "scanner": {
+                    "title": "Scanner de Validação",
+                    "description": "Valide entradas instantaneamente com nosso app de scanner QR em tempo real."
+                },
+                "payments": {
+                    "title": "Pagamentos Integrados",
+                    "description": "Processe pagamentos com segurança via Stripe e receba o dinheiro diretamente."
+                },
+                "email": {
+                    "title": "Email Automático",
+                    "description": "Envie confirmações com ingressos QR e lembretes automaticamente."
+                }
+            }
+        },
+        "pricing": {
+            "title": "Preços transparentes e flexíveis",
+            "subtitle": "Escolha o plano que melhor se adapta às suas necessidades",
+            "plans": {
+                "freemium": {
+                    "name": "Freemium A",
+                    "description": "Ideal para eventos pequenos e gratuitos.",
+                    "features": {
+                        "tickets": "Até {maxTickets} ingressos",
+                        "events": "{maxEvents} evento por mês",
+                        "scanner": "Scanner de validação"
+                    }
+                },
+                "pro": {
+                    "name": "Pro",
+                    "description": "Para eventos em crescimento com venda de ingressos.",
+                    "priceLabel": "Por ingresso vendido",
+                    "mostPopular": "Mais Popular",
+                    "features": {
+                        "unlimitedEvents": "Eventos ilimitados",
+                        "unlimitedTickets": "Ingressos ilimitados",
+                        "stripe": "Pagamentos com Stripe"
+                    }
+                },
+                "enterprise": {
+                    "name": "Enterprise",
+                    "price": "Sob medida",
+                    "description": "Soluções personalizadas para grandes organizadores.",
+                    "features": {
+                        "whiteLabel": "Marca branca",
+                        "support": "Suporte 24/7"
+                    }
+                }
+            },
+            "cta": {
+                "startFree": "Começar Grátis",
+                "startNow": "Começar Agora",
+                "contactSales": "Contatar Vendas"
+            }
+        },
+        "stats": {
+            "eventsCreated": "Eventos Criados",
+            "ticketsSold": "Ingressos Vendidos",
+            "satisfaction": "Satisfação",
+            "support": "Suporte"
+        },
+        "cta": {
+            "title": "Pronto para criar seu próximo evento?",
+            "subtitle": "Junte-se a milhares de organizadores que confiam na Holifes para gerenciar seus eventos",
+            "button": "Começar Grátis Agora"
+        }
+    },
+    "Auth": {
+        "login": "Entrar",
+        "register": "Registrar",
+        "welcomeBack": "Bem-vindo de volta",
+        "loginSubtitle": "Faça login para gerenciar seus eventos",
+        "continueWithGoogle": "Continuar com Google",
+        "orLoginWithEmail": "Ou entre com email",
+        "emailLabel": "Endereço de email",
+        "emailPlaceholder": "voce@exemplo.com",
+        "passwordLabel": "Senha",
+        "passwordPlaceholder": "Sua senha",
+        "loggingIn": "Entrando...",
+        "loginButton": "Entrar",
+        "noAccountRegister": "Não tem conta? Registre-se",
+        "createAccount": "Crie sua conta",
+        "registerSubtitle": "Comece a organizar eventos incríveis",
+        "registerWithGoogle": "Registrar com Google",
+        "orRegisterWithEmail": "Ou registre-se com email",
+        "fullNameLabel": "Nome completo",
+        "fullNamePlaceholder": "Seu nome completo",
+        "phoneLabel": "Telefone/Celular",
+        "optional": "(opcional)",
+        "confirmPasswordLabel": "Confirmar senha",
+        "confirmPasswordPlaceholder": "Repita sua senha",
+        "registering": "Registrando...",
+        "registerAction": "Registrar",
+        "alreadyHaveAccount": "Já tem conta? Entrar",
+        "validation": {
+            "nameRequired": "Por favor insira seu nome completo",
+            "emailRequired": "Por favor insira seu endereço de email",
+            "passwordLength": "A senha deve ter pelo menos 6 caracteres",
+            "passwordMismatch": "As senhas não coincidem"
+        },
+        "errors": {
+            "invalidCredential": "Email ou senha incorretos. Por favor verifique e tente novamente.",
+            "userNotFound": "Nenhuma conta encontrada com este email.",
+            "wrongPassword": "A senha está incorreta. Por favor verifique e tente novamente.",
+            "invalidEmail": "O endereço de email é inválido.",
+            "userDisabled": "Esta conta foi desativada.",
+            "tooManyRequests": "Muitas tentativas falhas. Por favor aguarde alguns minutos e tente novamente.",
+            "networkRequestFailed": "Erro de conexão. Por favor verifique sua internet e tente novamente.",
+            "generic": "Ocorreu um erro ao entrar. Por favor tente novamente.",
+            "emailInUse": "Este email já está registrado. Por favor entre ou use outro email.",
+            "operationNotAllowed": "O registro de usuários está temporariamente desativado.",
+            "weakPassword": "A senha é muito fraca. Deve ter pelo menos 6 caracteres.",
+            "requiresRecentLogin": "Por segurança, você precisa entrar novamente.",
+            "permissionDenied": "Você não tem permissão para realizar esta ação.",
+            "unavailable": "Serviço temporariamente indisponível. Tente mais tarde.",
+            "genericRegister": "Ocorreu um erro ao criar a conta. Por favor tente novamente."
+        }
+    },
+    "Sidebar": {
+        "dashboard": "Dashboard",
+        "myEvents": "Meus Eventos",
+        "pos": "Ponto de Venda",
+        "contacts": "Contatos",
+        "finance": "Finanças",
+        "settings": "Configurações",
+        "administration": "Administração",
+        "superAdmin": "Super Admin",
+        "organizerPro": "Organizador Pro",
+        "logout": "Sair",
+        "user": "Usuário"
+    },
+    "Events": {
+        "loading": "Carregando eventos...",
+        "emptyState": {
+            "title": "Comece seu primeiro evento",
+            "description": "Você ainda não tem eventos ativos. Crie um novo para começar a gerenciar participantes, vender ingressos e controlar o acesso.",
+            "createButton": "Criar Novo Evento",
+            "tutorialButton": "Ver tutorial rápido"
+        },
+        "features": {
+            "securePayments": "Pagamentos Seguros",
+            "qrCheckin": "Check-in QR",
+            "realTimeAnalytics": "Análises em tempo real"
+        },
+        "table": {
+            "event": "Evento",
+            "date": "Data",
+            "location": "Localização",
+            "status": "Status",
+            "manage": "Gerenciar"
+        },
+        "status": {
+            "published": "Publicado",
+            "draft": "Rascunho"
+        }
+    },
+    "TopBar": {
+        "headers": {
+            "profile": {
+                "title": "Meu Perfil",
+                "subtitle": "Atualize suas informações pessoais e segurança."
+            },
+            "team": {
+                "title": "Equipe",
+                "subtitle": "Gerencie os membros da sua organização."
+            },
+            "organization": {
+                "title": "Organização",
+                "subtitle": "Configure as informações da sua empresa."
+            },
+            "account": {
+                "title": "Conta",
+                "subtitle": "Gerencie seu plano e faturamento."
+            },
+            "integrations": {
+                "title": "Integrações",
+                "subtitle": "Conecte ferramentas externas."
+            },
+            "settings": {
+                "title": "Configurações",
+                "subtitle": "Administre todos os aspectos da sua organização e conta."
+            },
+            "events": {
+                "title": "Meus Eventos",
+                "subtitle": "Gerencie seus eventos e vendas."
+            },
+            "pos": {
+                "title": "Ponto de Venda",
+                "subtitle": "Terminal de vendas e pedidos."
+            },
+            "contacts": {
+                "title": "Contatos",
+                "subtitle": "Gerencie sua base de clientes."
+            },
+            "finance": {
+                "title": "Finanças",
+                "subtitle": "Resumo de receitas e movimentos."
+            },
+            "dashboard": {
+                "title": "Dashboard",
+                "subtitle": ""
+            }
+        },
+        "filters": {
+            "allTime": "Todo o Tempo",
+            "thisWeek": "Esta Semana",
+            "thisMonth": "Este Mês",
+            "thisQuarter": "Este Trimestre",
+            "thisYear": "Este Ano"
+        },
+        "searchPlaceholder": "Buscar evento...",
+        "createEvent": "Criar Evento"
+    },
+    "EventForm": {
+        "nameLabel": "Nome do Evento",
+        "namePlaceholder": "Ex: Conferência Tech 2025",
+        "descriptionLabel": "Descrição",
+        "descriptionPlaceholder": "Detalhes do evento...",
+        "dateLabel": "Data",
+        "startTimeLabel": "Hora Início",
+        "endTimeLabel": "Hora Fim",
+        "locationLabel": "Localização",
+        "locationPlaceholder": "Ex: Centro de Convenções",
+        "capacityLabel": "Capacidade Máxima",
+        "priceLabel": "Preço ($)",
+        "saveError": "Erro ao salvar o evento: ",
+        "cancelButton": "Cancelar",
+        "savingButton": "Salvando...",
+        "updateButton": "Atualizar Evento",
+        "createButton": "Criar Evento"
+    },
+    "DashboardLayout": {
+        "loading": "Carregando..."
+    },
+    "DashboardStats": {
+        "loading": "Carregando painel...",
+        "metrics": {
+            "totalRevenue": "Receita Total",
+            "ticketsSold": "Ingressos Vendidos",
+            "activeEvents": "Eventos Ativos",
+            "avgTicket": "Ticket Médio"
+        },
+        "chart": {
+            "title": "Desempenho de Vendas",
+            "subtitle": "Receita no período selecionado",
+            "labels": {
+                "noData": "Sem dados"
+            },
+            "datasets": {
+                "revenue": "Receita"
+            }
+        },
+        "activity": {
+            "title": "Atividade Recente",
+            "boughtTicket": "comprou ingresso",
+            "unknownUser": "Usuário",
+            "unknownEvent": "Evento Desconhecido",
+            "noActivity": "Nenhuma atividade neste período"
+        }
+    }
+}

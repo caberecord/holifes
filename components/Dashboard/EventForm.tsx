@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { addDoc, collection, Timestamp, doc, updateDoc } from "firebase/firestore";
 import { db } from "../../lib/firebase";
+import { useTranslations } from 'next-intl';
 
 interface EventFormProps {
     initialData?: Event;
@@ -15,6 +16,7 @@ export default function EventForm({ initialData }: EventFormProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const t = useTranslations('EventForm');
 
     // Simplified form data for legacy support or simple edits
     const [formData, setFormData] = useState({
@@ -76,7 +78,7 @@ export default function EventForm({ initialData }: EventFormProps) {
             }
             router.push("/dashboard");
         } catch (err: any) {
-            setError("Error al guardar el evento: " + err.message);
+            setError(t('saveError') + err.message);
         } finally {
             setLoading(false);
         }
@@ -87,7 +89,7 @@ export default function EventForm({ initialData }: EventFormProps) {
             <div className="grid grid-cols-1 gap-x-8 gap-y-8 sm:grid-cols-6">
                 <div className="sm:col-span-4">
                     <label htmlFor="name" className="block text-sm font-medium leading-6 text-gray-300">
-                        Nombre del Evento
+                        {t('nameLabel')}
                     </label>
                     <div className="mt-2">
                         <input
@@ -98,14 +100,14 @@ export default function EventForm({ initialData }: EventFormProps) {
                             value={formData.name}
                             onChange={handleChange}
                             className="glass-input block w-full rounded-md py-2 px-3 shadow-sm sm:text-sm sm:leading-6"
-                            placeholder="Ej: Conferencia Tech 2025"
+                            placeholder={t('namePlaceholder')}
                         />
                     </div>
                 </div>
 
                 <div className="col-span-full">
                     <label htmlFor="description" className="block text-sm font-medium leading-6 text-gray-300">
-                        Descripción
+                        {t('descriptionLabel')}
                     </label>
                     <div className="mt-2">
                         <textarea
@@ -116,14 +118,14 @@ export default function EventForm({ initialData }: EventFormProps) {
                             value={formData.description}
                             onChange={handleChange}
                             className="glass-input block w-full rounded-md py-2 px-3 shadow-sm sm:text-sm sm:leading-6"
-                            placeholder="Detalles del evento..."
+                            placeholder={t('descriptionPlaceholder')}
                         />
                     </div>
                 </div>
 
                 <div className="sm:col-span-3">
                     <label htmlFor="date" className="block text-sm font-medium leading-6 text-gray-300">
-                        Fecha
+                        {t('dateLabel')}
                     </label>
                     <div className="mt-2">
                         <input
@@ -140,7 +142,7 @@ export default function EventForm({ initialData }: EventFormProps) {
 
                 <div className="sm:col-span-3">
                     <label htmlFor="startTime" className="block text-sm font-medium leading-6 text-gray-300">
-                        Hora Inicio
+                        {t('startTimeLabel')}
                     </label>
                     <div className="mt-2">
                         <input
@@ -157,7 +159,7 @@ export default function EventForm({ initialData }: EventFormProps) {
 
                 <div className="sm:col-span-3">
                     <label htmlFor="endTime" className="block text-sm font-medium leading-6 text-gray-300">
-                        Hora Fin
+                        {t('endTimeLabel')}
                     </label>
                     <div className="mt-2">
                         <input
@@ -174,7 +176,7 @@ export default function EventForm({ initialData }: EventFormProps) {
 
                 <div className="sm:col-span-3">
                     <label htmlFor="location" className="block text-sm font-medium leading-6 text-gray-300">
-                        Ubicación
+                        {t('locationLabel')}
                     </label>
                     <div className="mt-2">
                         <input
@@ -185,14 +187,14 @@ export default function EventForm({ initialData }: EventFormProps) {
                             value={formData.location}
                             onChange={handleChange}
                             className="glass-input block w-full rounded-md py-2 px-3 shadow-sm sm:text-sm sm:leading-6"
-                            placeholder="Ej: Centro de Convenciones"
+                            placeholder={t('locationPlaceholder')}
                         />
                     </div>
                 </div>
 
                 <div className="sm:col-span-2">
                     <label htmlFor="capacity" className="block text-sm font-medium leading-6 text-gray-300">
-                        Aforo Máximo
+                        {t('capacityLabel')}
                     </label>
                     <div className="mt-2">
                         <input
@@ -210,7 +212,7 @@ export default function EventForm({ initialData }: EventFormProps) {
 
                 <div className="sm:col-span-2">
                     <label htmlFor="price" className="block text-sm font-medium leading-6 text-gray-300">
-                        Precio ($)
+                        {t('priceLabel')}
                     </label>
                     <div className="mt-2">
                         <input
@@ -236,14 +238,14 @@ export default function EventForm({ initialData }: EventFormProps) {
                     onClick={() => router.back()}
                     className="text-sm font-semibold leading-6 text-gray-300 hover:text-white transition-colors"
                 >
-                    Cancelar
+                    {t('cancelButton')}
                 </button>
                 <button
                     type="submit"
                     disabled={loading}
                     className="btn-neon rounded-md px-6 py-2 text-sm font-semibold shadow-sm disabled:opacity-50"
                 >
-                    {loading ? "Guardando..." : initialData ? "Actualizar Evento" : "Crear Evento"}
+                    {loading ? t('savingButton') : initialData ? t('updateButton') : t('createButton')}
                 </button>
             </div>
         </form>

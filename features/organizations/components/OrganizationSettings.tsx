@@ -5,6 +5,27 @@ import { useAuth } from "@/context/AuthContext";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Loader2, Save } from "lucide-react";
+import CustomPhoneInput from "@/components/ui/PhoneInput";
+
+const LATAM_COUNTRIES = [
+    { code: "CO", name: "Colombia" },
+    { code: "MX", name: "México" },
+    { code: "CL", name: "Chile" },
+    { code: "PE", name: "Perú" },
+    { code: "AR", name: "Argentina" },
+    { code: "EC", name: "Ecuador" },
+    { code: "VE", name: "Venezuela" },
+    { code: "BO", name: "Bolivia" },
+    { code: "PY", name: "Paraguay" },
+    { code: "UY", name: "Uruguay" },
+    { code: "PA", name: "Panamá" },
+    { code: "CR", name: "Costa Rica" },
+    { code: "DO", name: "República Dominicana" },
+    { code: "GT", name: "Guatemala" },
+    { code: "SV", name: "El Salvador" },
+    { code: "HN", name: "Honduras" },
+    { code: "NI", name: "Nicaragua" }
+];
 
 export const OrganizationSettings = () => {
     const { currentOrganization } = useAuth();
@@ -209,20 +230,19 @@ export const OrganizationSettings = () => {
                                 onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                             >
-                                <option value="CO">Colombia</option>
-                                <option value="MX">México</option>
-                                <option value="CL">Chile</option>
-                                <option value="PE">Perú</option>
-                                <option value="AR">Argentina</option>
+                                {LATAM_COUNTRIES.map(country => (
+                                    <option key={country.code} value={country.code}>
+                                        {country.name}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700">Teléfono</label>
-                            <input
-                                type="text"
+                            <CustomPhoneInput
                                 value={formData.phone}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                onChange={(value) => setFormData({ ...formData, phone: value || "" })}
+                                placeholder="+57 300 123 4567"
                             />
                         </div>
                         <div className="space-y-2">

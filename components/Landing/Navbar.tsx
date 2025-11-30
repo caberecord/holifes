@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import LocaleSwitcher from "@/components/ui/LocaleSwitcher";
 
 export default function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -25,6 +26,8 @@ export default function Navbar() {
                         <Link href="/#pricing" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">
                             Precios
                         </Link>
+                        <LocaleSwitcher />
+                        <div className="h-6 w-px bg-gray-200" />
                         <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">
                             Iniciar Sesión
                         </Link>
@@ -61,6 +64,9 @@ export default function Navbar() {
                             <Link href="/#pricing" className="text-sm font-medium text-gray-600 hover:text-indigo-600">
                                 Precios
                             </Link>
+                            <div className="py-2">
+                                <LocaleSwitcher />
+                            </div>
                             <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-indigo-600">
                                 Iniciar Sesión
                             </Link>

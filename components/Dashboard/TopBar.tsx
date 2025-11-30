@@ -4,6 +4,8 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 
 import { Menu } from "lucide-react";
 import { OrganizationSwitcher } from "@/features/organizations/components";
+import { useTranslations } from 'next-intl';
+import LocaleSwitcher from "@/components/ui/LocaleSwitcher";
 
 const Icons = {
     Search: () => (
@@ -24,7 +26,8 @@ interface TopBarProps {
 export default function TopBar({ onMenuClick }: TopBarProps) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const router = useRouter(); // Need to import useRouter
+    const router = useRouter();
+    const t = useTranslations('TopBar');
 
     const createQueryString = (name: string, value: string) => {
         const params = new URLSearchParams(searchParams.toString());
@@ -39,34 +42,34 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
     const getPageHeader = (path: string) => {
         if (path.startsWith("/dashboard/settings")) {
             const view = searchParams.get("view");
-            if (view === "profile") return { title: "Mi Perfil", subtitle: "Actualiza tu información personal y seguridad." };
-            if (view === "team") return { title: "Equipo", subtitle: "Gestiona los miembros de tu organización." };
-            if (view === "organization") return { title: "Organización", subtitle: "Configura la información de tu empresa." };
-            if (view === "account") return { title: "Cuenta", subtitle: "Gestiona tu plan y facturación." };
-            if (view === "integrations") return { title: "Integraciones", subtitle: "Conecta herramientas externas." };
+            if (view === "profile") return { title: t('headers.profile.title'), subtitle: t('headers.profile.subtitle') };
+            if (view === "team") return { title: t('headers.team.title'), subtitle: t('headers.team.subtitle') };
+            if (view === "organization") return { title: t('headers.organization.title'), subtitle: t('headers.organization.subtitle') };
+            if (view === "account") return { title: t('headers.account.title'), subtitle: t('headers.account.subtitle') };
+            if (view === "integrations") return { title: t('headers.integrations.title'), subtitle: t('headers.integrations.subtitle') };
 
             return {
-                title: "Configuración",
-                subtitle: "Administra todos los aspectos de tu organización y cuenta."
+                title: t('headers.settings.title'),
+                subtitle: t('headers.settings.subtitle')
             };
         }
         if (path.startsWith("/dashboard/events")) return {
-            title: "Mis Eventos",
-            subtitle: "Gestiona tus eventos y ventas."
+            title: t('headers.events.title'),
+            subtitle: t('headers.events.subtitle')
         };
         if (path.startsWith("/dashboard/sales")) return {
-            title: "Punto de Venta",
-            subtitle: "Terminal de ventas y pedidos."
+            title: t('headers.pos.title'),
+            subtitle: t('headers.pos.subtitle')
         };
         if (path.startsWith("/dashboard/contacts")) return {
-            title: "Contactos",
-            subtitle: "Gestiona tu base de datos de clientes."
+            title: t('headers.contacts.title'),
+            subtitle: t('headers.contacts.subtitle')
         };
         if (path.startsWith("/dashboard/finance")) return {
-            title: "Finanzas",
-            subtitle: "Resumen de ingresos y movimientos."
+            title: t('headers.finance.title'),
+            subtitle: t('headers.finance.subtitle')
         };
-        return { title: "Dashboard", subtitle: "" };
+        return { title: t('headers.dashboard.title'), subtitle: t('headers.dashboard.subtitle') };
     };
 
     const { title, subtitle } = getPageHeader(pathname);
@@ -99,11 +102,11 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                             onChange={(e) => handleDateFilterChange(e.target.value)}
                             className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer"
                         >
-                            <option value="all">Todo el Tiempo</option>
-                            <option value="week">Esta Semana</option>
-                            <option value="month">Este Mes</option>
-                            <option value="quarter">Este Trimestre</option>
-                            <option value="year">Este Año</option>
+                            <option value="all">{t('filters.allTime')}</option>
+                            <option value="week">{t('filters.thisWeek')}</option>
+                            <option value="month">{t('filters.thisMonth')}</option>
+                            <option value="quarter">{t('filters.thisQuarter')}</option>
+                            <option value="year">{t('filters.thisYear')}</option>
                         </select>
                     </div>
                 )}
@@ -115,7 +118,7 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                     </div>
                     <input
                         type="text"
-                        placeholder="Buscar evento..."
+                        placeholder={t('searchPlaceholder')}
                         className="h-10 w-48 md:w-64 rounded-lg border border-gray-300 bg-white pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
                     />
                 </div>
@@ -126,6 +129,11 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                     <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
                 </button>
 
+                {/* Locale Switcher */}
+                <div className="hidden sm:block">
+                    <LocaleSwitcher />
+                </div>
+
                 {/* Organization Switcher */}
                 <OrganizationSwitcher />
 
@@ -135,7 +143,7 @@ export default function TopBar({ onMenuClick }: TopBarProps) {
                     className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
                 >
                     <Icons.Plus />
-                    <span className="hidden xs:inline">Crear Evento</span>
+                    <span className="hidden xs:inline">{t('createEvent')}</span>
                 </Link>
             </div>
         </header>

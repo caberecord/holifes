@@ -19,9 +19,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await limiter.check(NextResponse.next(), 10, user.uid); // 10 requests per minute
+    // await limiter.check(NextResponse.next(), 50, user.uid); // 50 requests per minute
   } catch {
-    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+    // return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
   }
 
   try {

@@ -103,7 +103,11 @@ export const posService = {
 
         // 3. Send Emails (Batch)
         try {
-            await this.sendBatchEmail(mainAttendee.email, selectedEvent, allProcessedAttendees);
+            let token = '';
+            if (user && typeof user.getIdToken === 'function') {
+                token = await user.getIdToken();
+            }
+            await this.sendBatchEmail(mainAttendee.email, selectedEvent, allProcessedAttendees, token);
         } catch (err) {
             console.error("❌ Failed to send batch ticket email:", err);
             toast.error("Error al enviar correos, intente reenviar desde la pantalla de éxito");
@@ -131,10 +135,15 @@ export const posService = {
         return { contactId, allProcessedAttendees };
     },
 
-    async sendBatchEmail(email: string, event: Event, attendees: any[]) {
+    async sendBatchEmail(email: string, event: Event, attendees: any[], token?: string) {
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const emailResponse = await fetch('/api/send-ticket/batch', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
                 email,
                 eventName: event.name,

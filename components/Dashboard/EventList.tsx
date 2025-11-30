@@ -6,11 +6,15 @@ import { useAuth } from "../../context/AuthContext";
 import { Event } from "../../types/event";
 import Link from "next/link";
 import { Ticket, Users, Calendar, Plus } from "lucide-react";
+import { useTranslations, useLocale } from 'next-intl';
+import { formatDate } from "../../lib/formatters";
 
 export default function EventList() {
     const { user, appUser } = useAuth();
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(true);
+    const t = useTranslations('Events');
+    const locale = useLocale();
 
     useEffect(() => {
         if (!user || !appUser) return;
@@ -39,7 +43,7 @@ export default function EventList() {
     }, [user, appUser]);
 
     if (loading) {
-        return <div className="text-gray-400">Cargando eventos...</div>;
+        return <div className="text-gray-400">{t('loading')}</div>;
     }
 
     if (events.length === 0) {
@@ -90,10 +94,10 @@ export default function EventList() {
 
                         {/* Textos Mejorados */}
                         <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
-                            Comienza tu primer evento
+                            {t('emptyState.title')}
                         </h2>
                         <p className="text-gray-500 mb-6 text-sm leading-relaxed max-w-sm">
-                            Aún no tienes eventos activos. Crea uno nuevo para empezar a gestionar asistentes, vender entradas y controlar el acceso.
+                            {t('emptyState.description')}
                         </p>
 
                         {/* Botón de Acción Principal (Grande) */}
@@ -103,20 +107,20 @@ export default function EventList() {
                                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-semibold shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 hover:shadow-indigo-200 transition-all transform hover:-translate-y-1 text-sm"
                             >
                                 <Plus size={18} />
-                                Crear Nuevo Evento
+                                {t('emptyState.createButton')}
                             </Link>
 
                             {/* Botón Secundario */}
                             <button className="px-5 py-2.5 rounded-xl text-gray-600 font-medium hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all text-sm">
-                                Ver tutorial rápido
+                                {t('emptyState.tutorialButton')}
                             </button>
                         </div>
 
                         {/* Feature Pills */}
                         <div className="mt-8 pt-6 border-t border-gray-50 w-full flex flex-wrap justify-center gap-4 text-xs text-gray-400">
-                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-400"></span> Pagos Seguros</span>
-                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span> QR Check-in</span>
-                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span> Analíticas en tiempo real</span>
+                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-400"></span> {t('features.securePayments')}</span>
+                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span> {t('features.qrCheckin')}</span>
+                            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span> {t('features.realTimeAnalytics')}</span>
                         </div>
 
                     </div>
@@ -131,19 +135,19 @@ export default function EventList() {
                 <thead className="bg-gray-50">
                     <tr>
                         <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
-                            Evento
+                            {t('table.event')}
                         </th>
                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                            Fecha
+                            {t('table.date')}
                         </th>
                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                            Ubicación
+                            {t('table.location')}
                         </th>
                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                            Estado
+                            {t('table.status')}
                         </th>
                         <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                            <span className="sr-only">Gestionar</span>
+                            <span className="sr-only">{t('table.manage')}</span>
                         </th>
                     </tr>
                 </thead>
@@ -154,14 +158,14 @@ export default function EventList() {
                                 {event.name || event.title}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                {new Date(event.date).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })}
+                                {formatDate(event.date, locale, 'PP')}
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{event.location}</td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
                                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${event.status === 'published' ? 'bg-green-100 text-green-800' :
                                     event.status === 'draft' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
                                     }`}>
-                                    {event.status === 'published' ? 'Publicado' : event.status === 'draft' ? 'Borrador' : event.status || 'Borrador'}
+                                    {t(`status.${event.status || 'draft'}`)}
                                 </span>
                             </td>
                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
@@ -169,7 +173,7 @@ export default function EventList() {
                                     href={`/dashboard/edit/${event.id}`}
                                     className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-all"
                                 >
-                                    Gestionar
+                                    {t('table.manage')}
                                 </Link>
                             </td>
                         </tr>

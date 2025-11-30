@@ -18,6 +18,8 @@ import {
 import { ArrowUp, ArrowDown, Calendar as CalendarIcon, Filter } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useSearchParams } from "next/navigation";
+import { useTranslations, useLocale } from 'next-intl';
+import { formatCurrency, formatDate } from "@/lib/formatters";
 
 ChartJS.register(
     CategoryScale,
@@ -57,6 +59,8 @@ export default function DashboardStats() {
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(true);
     const searchParams = useSearchParams();
+    const t = useTranslations('DashboardStats');
+    const locale = useLocale();
 
     const dateFilter = searchParams.get("dateFilter") || "year";
     const customStart = searchParams.get("startDate");
@@ -117,7 +121,7 @@ export default function DashboardStats() {
                     if (data.ticketId) {
                         allTransactionsMap.set(data.ticketId, {
                             ...data,
-                            eventName: event?.name || "Evento Desconocido",
+                            eventName: event?.name || t('activity.unknownEvent'),
                             eventDate: event?.date,
                             date: data.createdAt?.toDate ? data.createdAt.toDate() : (data.purchaseDate ? new Date(data.purchaseDate) : new Date())
                         });
@@ -134,7 +138,7 @@ export default function DashboardStats() {
             }
         };
         fetchData();
-    }, [user]);
+    }, [user, t]);
 
     // Filter Logic
     const getFilteredTransactions = () => {
@@ -198,10 +202,7 @@ export default function DashboardStats() {
         const groupedData: Record<string, number> = {};
 
         filteredTransactions.forEach(tx => {
-            const dateKey = tx.date.toLocaleDateString('es-ES', {
-                day: 'numeric',
-                month: 'short'
-            });
+            const dateKey = formatDate(tx.date, locale, 'MMM d');
             groupedData[dateKey] = (groupedData[dateKey] || 0) + (tx.price || 0);
         });
 
@@ -214,9 +215,9 @@ export default function DashboardStats() {
         // If empty, show placeholders
         if (labels.length === 0) {
             return {
-                labels: ["Sin datos"],
+                labels: [t('chart.labels.noData')],
                 datasets: [{
-                    label: "Ingresos",
+                    label: t('chart.datasets.revenue'),
                     data: [0],
                     borderColor: "rgb(99, 102, 241)",
                     backgroundColor: "rgba(99, 102, 241, 0.05)",
@@ -231,7 +232,7 @@ export default function DashboardStats() {
             datasets: [
                 {
                     fill: true,
-                    label: "Ingresos",
+                    label: t('chart.datasets.revenue'),
                     data: dataPoints,
                     borderColor: "rgb(99, 102, 241)",
                     backgroundColor: "rgba(99, 102, 241, 0.05)",
@@ -242,7 +243,7 @@ export default function DashboardStats() {
         };
     };
 
-    if (loading) return <div className="p-8 text-center">Cargando tablero...</div>;
+    if (loading) return <div className="p-8 text-center">{t('loading')}</div>;
 
     return (
         <div className="space-y-5">
@@ -254,10 +255,10 @@ export default function DashboardStats() {
             {/* Metric Cards */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {[
-                    { title: "Ingresos Totales", value: `$${totalRevenue.toLocaleString()}`, icon: "💰", color: "bg-emerald-50 text-emerald-600" },
-                    { title: "Entradas Vendidas", value: ticketsSold, icon: "🎟️", color: "bg-blue-50 text-blue-600" },
-                    { title: "Eventos Activos", value: activeEventsCount, icon: "📅", color: "bg-purple-50 text-purple-600" },
-                    { title: "Promedio Ticket", value: `$${ticketsSold > 0 ? Math.round(totalRevenue / ticketsSold).toLocaleString() : 0}`, icon: "📈", color: "bg-orange-50 text-orange-600" },
+                    { title: t('metrics.totalRevenue'), value: formatCurrency(totalRevenue, 'USD', locale), icon: "💰", color: "bg-emerald-50 text-emerald-600" },
+                    { title: t('metrics.ticketsSold'), value: ticketsSold, icon: "🎟️", color: "bg-blue-50 text-blue-600" },
+                    { title: t('metrics.activeEvents'), value: activeEventsCount, icon: "📅", color: "bg-purple-50 text-purple-600" },
+                    { title: t('metrics.avgTicket'), value: formatCurrency(ticketsSold > 0 ? Math.round(totalRevenue / ticketsSold) : 0, 'USD', locale), icon: "📈", color: "bg-orange-50 text-orange-600" },
                 ].map((metric, index) => (
                     <div key={index} className="bg-white rounded-xl border border-gray-200 p-3 shadow-sm hover:shadow-md transition-all duration-200">
                         <div className="flex items-start justify-between mb-2">
@@ -275,8 +276,8 @@ export default function DashboardStats() {
                 {/* Chart Section */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm lg:col-span-2">
                     <div className="mb-6">
-                        <h3 className="text-lg font-bold text-gray-900">Rendimiento de Ventas</h3>
-                        <p className="text-xs text-gray-500">Ingresos en el periodo seleccionado</p>
+                        <h3 className="text-lg font-bold text-gray-900">{t('chart.title')}</h3>
+                        <p className="text-xs text-gray-500">{t('chart.subtitle')}</p>
                     </div>
                     <div className="h-80 w-full">
                         <Line options={chartOptions} data={getChartData()} />
@@ -285,7 +286,7 @@ export default function DashboardStats() {
 
                 {/* Recent Activity Section */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm overflow-hidden">
-                    <h3 className="mb-5 text-lg font-bold text-gray-900">Actividad Reciente</h3>
+                    <h3 className="mb-5 text-lg font-bold text-gray-900">{t('activity.title')}</h3>
                     <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
                         {filteredTransactions.length > 0 ? (
                             filteredTransactions.slice(0, 6).map((tx, i) => (
@@ -296,16 +297,16 @@ export default function DashboardStats() {
                                         </div>
                                         <div className="min-w-0">
                                             <p className="text-sm font-medium text-gray-900 truncate">
-                                                {tx.Name || "Usuario"} <span className="text-gray-400 font-normal">compró entrada</span>
+                                                {tx.Name || t('activity.unknownUser')} <span className="text-gray-400 font-normal">{t('activity.boughtTicket')}</span>
                                             </p>
                                             <p className="text-xs text-gray-500 truncate">{tx.eventName}</p>
                                         </div>
                                     </div>
-                                    <span className="text-sm font-semibold text-emerald-600 shrink-0">+${tx.price?.toLocaleString()}</span>
+                                    <span className="text-sm font-semibold text-emerald-600 shrink-0">+{formatCurrency(tx.price || 0, 'USD', locale)}</span>
                                 </div>
                             ))
                         ) : (
-                            <p className="text-center text-gray-400 py-8">No hay actividad en este periodo</p>
+                            <p className="text-center text-gray-400 py-8">{t('activity.noActivity')}</p>
                         )}
                     </div>
                 </div>

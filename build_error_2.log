@@ -1,0 +1,28 @@
+
+> gestion-eventos-app@0.1.0 build
+> next build
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+   Ôû▓ Next.js 16.0.3 (Turbopack)
+   - Environments: .env.local
+
+ ÔÜá The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+   Creating an optimized production build ...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ Ô£ô Compiled successfully in 14.1s
+   Running TypeScript ...
+Failed to compile.
+
+.next/dev/types/validator.ts:25:44
+Type error: Type 'Route' does not satisfy the constraint 'LayoutRoutes'.
+  Type 'import("C:/Users/dexte/Desktop/Dexter/gestion-eventos-app/.next/dev/types/routes").LayoutRoutes' is not assignable to type 'import("C:/Users/dexte/Desktop/Dexter/gestion-eventos-app/.next/types/routes").LayoutRoutes'.
+    Type '"/"' is not assignable to type 'LayoutRoutes'.
+
+  23 |
+  24 | type LayoutConfig<Route extends LayoutRoutes = LayoutRoutes> = {
+> 25 |   default: React.ComponentType<LayoutProps<Route>> | ((props: LayoutProps<Route>) => React.ReactNode | Promise<React.ReactNode> | never | void | Promise<void>)
+     |                                            ^
+  26 |   generateStaticParams?: (props: { params: ParamMap[Route] }) => Promise<any[]> | any[]
+  27 |   generateMetadata?: (
+  28 |     props: { params: Promise<ParamMap[Route]> } & any,
+Next.js build worker exited with code: 1 and signal: null
