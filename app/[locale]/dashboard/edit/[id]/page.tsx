@@ -8,7 +8,7 @@ import EventHeader from "@/components/Dashboard/EventManagement/EventHeader";
 import TabMetrics from "@/components/Dashboard/EventManagement/TabMetrics";
 import TabAttendees from "@/components/Dashboard/EventManagement/TabAttendees";
 import TabConfig from "@/components/Dashboard/EventManagement/TabConfig";
-import TabAudit from "@/components/Dashboard/Event/TabAudit";
+import AuditTab from "@/components/Dashboard/EventManagement/AuditTab";
 import { Settings, Users, BarChart3, Share2, Ticket, Globe, ShieldAlert } from "lucide-react";
 
 export default function EditEventPage() {
@@ -53,14 +53,16 @@ export default function EditEventPage() {
         { id: "metrics", label: "Métricas", icon: BarChart3 },
         { id: "attendees", label: "Tickets y Asistentes", icon: Ticket },
         { id: "audit", label: "Auditoría", icon: ShieldAlert },
-        { id: "config", label: "Configuración", icon: Settings },
         { id: "website", label: "Sitio Web", icon: Globe },
         { id: "integrations", label: "Integraciones", icon: Share2 },
+        { id: "config", label: "Configuración", icon: Settings },
     ];
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <EventHeader event={event} />
+            <div className="max-w-7xl mx-auto pt-6 px-4 sm:px-6 lg:px-8 mb-6">
+                <EventHeader event={event} />
+            </div>
 
             {/* Main Tabs Navigation */}
             <div className="bg-white border-b border-gray-200 px-6">
@@ -88,7 +90,7 @@ export default function EditEventPage() {
             <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 {activeTab === "metrics" && <TabMetrics event={event} />}
                 {activeTab === "attendees" && <TabAttendees event={event} />}
-                {activeTab === "audit" && <TabAudit eventId={event.id!} />}
+                {activeTab === "audit" && <AuditTab eventId={event.id!} />}
                 {activeTab === "config" && <TabConfig event={event} />}
                 {activeTab === "integrations" && (
                     <div className="text-center py-20 text-gray-500 bg-white rounded-xl border border-gray-200">

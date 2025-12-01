@@ -34,7 +34,7 @@ export interface Event {
             capacity: number;
             price: number;
             color: string;
-            type?: 'standing' | 'seating';
+            type?: 'standing' | 'seating' | 'numbered';
             shape?: string;
             x?: number;
             y?: number;
@@ -42,7 +42,11 @@ export interface Event {
             height?: number;
             rotation?: number;
         }>;
-        venueMap?: any; // Full JSON state from VenueBuilder
+        venueMap?: {
+            elements: any[];
+            stageConfig?: any;
+            canvasSize?: { width: number; height: number };
+        };
     };
 
     // Distribution
@@ -143,5 +147,8 @@ export interface Event {
 
     // Speakers (Legacy or direct field)
     speakers?: any[];
+
+    // Real-time Seat Availability
+    soldSeats?: string[];
 }
 

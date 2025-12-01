@@ -19,6 +19,8 @@ export const usePOS = (user: any, selectedEvent: Event | null) => {
     const [lastSaleData, setLastSaleData] = useState<POSSaleData | null>(null);
     const [isSearchingContact, setIsSearchingContact] = useState(false);
 
+    const [selectedSeats, setSelectedSeats] = useState<{ [zoneName: string]: string[] }>({});
+
     // Calculate Sold By Zone (Memoized)
     const soldByZone = useMemo(() => {
         if (selectedEvent?.stats?.soldByZone) {
@@ -39,9 +41,9 @@ export const usePOS = (user: any, selectedEvent: Event | null) => {
     const handleAddToCart = (zoneName: string, delta: number) => {
         const current = cart[zoneName] || 0;
         const newValue = Math.max(0, current + delta);
+        const zone = selectedEvent?.venue?.zones.find(z => z.name === zoneName);
 
         if (delta > 0) {
-            const zone = selectedEvent?.venue?.zones.find(z => z.name === zoneName);
             if (zone) {
                 const sold = soldByZone[zoneName] || 0;
                 const remaining = zone.capacity - sold;
@@ -52,10 +54,67 @@ export const usePOS = (user: any, selectedEvent: Event | null) => {
             }
         }
 
+        // Sync selectedSeats if quantity is reduced
+        if (zone?.type === 'seating') {
+            if (newValue < current) {
+                // Remove last added seats to match new quantity
+                setSelectedSeats(prev => {
+                    const currentSeats = prev[zoneName] || [];
+                    if (currentSeats.length > newValue) {
+                        return {
+                            ...prev,
+                            [zoneName]: currentSeats.slice(0, newValue)
+                        };
+                    }
+                    return prev;
+                });
+            }
+        }
+
         setCart(prev => {
             const newCart = { ...prev, [zoneName]: newValue };
             if (newValue === 0) delete newCart[zoneName];
             return newCart;
+        });
+    };
+
+    const handleSelectSeats = (zoneName: string, seats: string[]) => {
+        setSelectedSeats(prev => ({
+            ...prev,
+            [zoneName]: seats
+        }));
+
+        // Sync cart quantity
+        setCart(prev => {
+            const newCart = { ...prev, [zoneName]: seats.length };
+            if (seats.length === 0) delete newCart[zoneName];
+            return newCart;
+        });
+    };
+
+    const toggleSeat = (zoneName: string, seatId: string) => {
+        setSelectedSeats(prev => {
+            const currentSeats = prev[zoneName] || [];
+            const isSelected = currentSeats.includes(seatId);
+            let newSeats;
+
+            if (isSelected) {
+                newSeats = currentSeats.filter(id => id !== seatId);
+            } else {
+                newSeats = [...currentSeats, seatId];
+            }
+
+            // Sync cart immediately
+            setCart(cartPrev => {
+                const newCart = { ...cartPrev, [zoneName]: newSeats.length };
+                if (newSeats.length === 0) delete newCart[zoneName];
+                return newCart;
+            });
+
+            return {
+                ...prev,
+                [zoneName]: newSeats
+            };
         });
     };
 
@@ -83,7 +142,8 @@ export const usePOS = (user: any, selectedEvent: Event | null) => {
                 mainAttendee,
                 paymentMethod!,
                 totalAmount,
-                user
+                user,
+                selectedSeats
             );
 
             const saleData: POSSaleData = {
@@ -111,6 +171,7 @@ export const usePOS = (user: any, selectedEvent: Event | null) => {
 
     const resetSale = () => {
         setCart({});
+        setSelectedSeats({});
         setMainAttendee({ name: "", email: "", phone: "", idNumber: "", idType: 'CC' });
         setPaymentMethod(null);
         setLastSaleData(null);
@@ -136,6 +197,9 @@ export const usePOS = (user: any, selectedEvent: Event | null) => {
         processSale,
         resetSale,
         isSearchingContact,
-        setIsSearchingContact
+        setIsSearchingContact,
+        selectedSeats,
+        handleSelectSeats,
+        toggleSeat
     };
 };

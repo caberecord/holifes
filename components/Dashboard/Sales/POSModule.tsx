@@ -61,6 +61,7 @@ export default function POSModule() {
 
     const {
         cart,
+        setCart,
         mainAttendee,
         setMainAttendee,
         paymentMethod,
@@ -77,7 +78,9 @@ export default function POSModule() {
         processSale,
         resetSale,
         isSearchingContact,
-        setIsSearchingContact
+        setIsSearchingContact,
+        selectedSeats,
+        handleSelectSeats
     } = usePOS(user, selectedEvent);
 
     useEffect(() => {
@@ -144,6 +147,9 @@ export default function POSModule() {
             if (doc.exists()) {
                 const updatedEvent = { id: doc.id, ...doc.data() } as Event;
                 setSelectedEvent(prev => ({ ...prev, ...updatedEvent }));
+
+                // Sync with events list to prevent stale data when going back to Step 1
+                setEvents(prevEvents => prevEvents.map(e => e.id === updatedEvent.id ? updatedEvent : e));
             }
         });
         return () => unsubscribe();
@@ -245,7 +251,10 @@ export default function POSModule() {
                 })
             });
 
-            if (!response.ok) throw new Error("Error generando PDF");
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || "Error generando PDF");
+            }
 
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
@@ -311,6 +320,8 @@ export default function POSModule() {
                                 soldByZone={soldByZone}
                                 onAddToCart={handleAddToCart}
                                 onNext={() => setCurrentStep(3)}
+                                selectedSeats={selectedSeats}
+                                onSelectSeats={handleSelectSeats}
                             />
                         )}
 
@@ -348,13 +359,13 @@ export default function POSModule() {
                         {/* Print Layout */}
                         <div className="hidden print:grid print:grid-cols-2 print:gap-4 print:p-4 print:absolute print:top-0 print:left-0 print:w-full print:bg-white">
                             <style>{`
-                                @media print {
-                                    @page { size: letter; margin: 0.5cm; }
-                                    body * { visibility: hidden; }
-                                    .print\\:grid, .print\\:grid * { visibility: visible; }
-                                    .print\\:grid { display: grid !important; }
-                                }
-                            `}</style>
+                                    @media print {
+                                        @page { size: letter; margin: 0.5cm; }
+                                        body * { visibility: hidden; }
+                                        .print\\:grid, .print\\:grid * { visibility: visible; }
+                                        .print\\:grid { display: grid !important; }
+                                    }
+                                `}</style>
                             {lastSaleData?.attendees?.map((ticket: any, i: number) => (
                                 <div key={i} className="border border-gray-300 rounded-lg p-4 flex flex-col items-center text-center h-[45vh] break-inside-avoid">
                                     <h3 className="font-bold text-lg mb-2">{lastSaleData.event.name}</h3>

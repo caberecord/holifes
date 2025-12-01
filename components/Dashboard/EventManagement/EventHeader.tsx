@@ -39,7 +39,7 @@ export default function EventHeader({ event }: EventHeaderProps) {
     const isPublished = event.status === 'published';
 
     return (
-        <>
+        <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-200 bg-white">
             {/* Cover Image Banner */}
             {event.coverImage && (
                 <div className="relative h-48 overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800">
@@ -52,7 +52,7 @@ export default function EventHeader({ event }: EventHeaderProps) {
                 </div>
             )}
 
-            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            <div className="px-6 py-4 flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">{event.name}</h1>
                     <div className="flex items-center gap-2 mt-1">
@@ -98,6 +98,6 @@ export default function EventHeader({ event }: EventHeaderProps) {
                     </button>
                 </div>
             </div>
-        </>
+        </div>
     );
 }

@@ -14,7 +14,7 @@ export interface TicketZone {
     y: number;
     width: number;
     height: number;
-    type: 'standing' | 'seating';
+    type: 'standing' | 'seating' | 'numbered';
     shape: 'rectangle' | 'L' | 'T';
     rotation: number;
 }

@@ -1,19 +1,24 @@
 "use client";
 import { Event } from "../../../types/event";
 import { useState, useEffect } from "react";
-import { Save, MapPin, Calendar, Type, Ticket, Loader2, Clock, Map, Link as LinkIcon, Tag, AlignLeft, CreditCard, Mail, Gift, Lock, Check, Upload, X } from "lucide-react";
+import { Save, MapPin, Calendar, Type, Ticket, Loader2, Clock, Map, Link as LinkIcon, Tag, AlignLeft, CreditCard, Mail, Gift, Lock, Check, Upload, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { doc, updateDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../../lib/firebase";
 import VenueBuilder from "../../Builder/VenueBuilder";
 import { useVenueBuilderStore } from "@/store/venueBuilderStore";
 import type { TicketZone, DistributionMethod } from "@/store/eventWizardStore";
+import { VenueMapSchema } from "@/lib/schemas/venueSchema";
+import { useAuth } from "@/context/AuthContext";
+import { logEventAction, AuditAction } from "@/lib/auditLogger";
+import { Shield } from "lucide-react";
 
 interface TabConfigProps {
     event: Event;
 }
 
 export default function TabConfig({ event }: TabConfigProps) {
+    const { user } = useAuth();
     const [activeSection, setActiveSection] = useState("basic");
     const [formData, setFormData] = useState(event);
     const [activePlan, setActivePlan] = useState(event.plan || 'freemium-a');
@@ -22,18 +27,51 @@ export default function TabConfig({ event }: TabConfigProps) {
     );
     const [isSaving, setIsSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const { elements, stageConfig, loadElements, setStageConfig } = useVenueBuilderStore();
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const { elements, stageConfig, canvasSize, loadElements, setStageConfig, setCanvasSize } = useVenueBuilderStore();
 
     // Load existing venue data when switching to design section
     useEffect(() => {
         if (activeSection === "design" && event.venue?.venueMap) {
             console.log("📥 Loading venue data:", event.venue.venueMap);
-            loadElements(event.venue.venueMap.elements || []);
+
+            // Check for sold zones and lock them
+            const soldSeats = event.soldSeats || [];
+            const soldByZone = event.stats?.soldByZone || {};
+
+            const elementsWithLocks = (event.venue.venueMap.elements || []).map((el: any) => {
+                let isLocked = false;
+
+                // Check Numbered Zones
+                if (el.type === 'numbered' || el.type === 'seating') {
+                    const hasSoldSeats = soldSeats.some(seatId => seatId.startsWith(`${el.name}:`));
+                    if (hasSoldSeats) isLocked = true;
+                }
+
+                // Check General Zones
+                if (el.type === 'general') {
+                    if (soldByZone[el.name] && soldByZone[el.name] > 0) {
+                        isLocked = true;
+                    }
+                }
+
+                if (isLocked) {
+                    return { ...el, locked: true };
+                }
+                return el;
+            });
+
+            loadElements(elementsWithLocks);
+
             if (event.venue.venueMap.stageConfig) {
                 setStageConfig(event.venue.venueMap.stageConfig);
             }
+
+            if (event.venue.venueMap.canvasSize) {
+                setCanvasSize(event.venue.venueMap.canvasSize);
+            }
         }
-    }, [activeSection, event.venue, loadElements, setStageConfig]);
+    }, [activeSection, event.venue, loadElements, setStageConfig, setCanvasSize, event.soldSeats, event.stats]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -51,19 +89,51 @@ export default function TabConfig({ event }: TabConfigProps) {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Validate file size (max 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-            alert("La imagen no debe superar 10MB");
-            return;
-        }
+        // Client-side resizing
+        const resizeImage = (file: File): Promise<Blob> => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.src = URL.createObjectURL(file);
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1920;
+                    const MAX_HEIGHT = 1080;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(blob);
+                        else reject(new Error("Canvas to Blob failed"));
+                    }, 'image/jpeg', 0.8);
+                };
+                img.onerror = reject;
+            });
+        };
 
         setUploading(true);
         try {
+            const resizedBlob = await resizeImage(file);
             const timestamp = Date.now();
-            const filename = `event-covers/${timestamp}_${file.name}`;
+            const filename = `event-covers/${timestamp}_${file.name.replace(/\.[^/.]+$/, "")}.jpg`;
             const storageRef = ref(storage, filename);
 
-            await uploadBytes(storageRef, file);
+            await uploadBytes(storageRef, resizedBlob);
             const downloadURL = await getDownloadURL(storageRef);
 
             setFormData({ ...formData, coverImage: downloadURL });
@@ -117,8 +187,18 @@ export default function TabConfig({ event }: TabConfigProps) {
                     venueMap: {
                         elements,
                         stageConfig,
+                        canvasSize,
                     },
                 };
+
+                // Schema Validation
+                const validationResult = VenueMapSchema.safeParse(venueData.venueMap);
+                if (!validationResult.success) {
+                    console.error("❌ Venue Validation Failed:", validationResult.error);
+                    alert("Error en la estructura del mapa: " + validationResult.error.issues.map(e => e.message).join(", "));
+                    setIsSaving(false);
+                    return;
+                }
 
                 console.log("💾 Guardando diseño:", {
                     totalZones: zones.length,
@@ -154,9 +234,33 @@ export default function TabConfig({ event }: TabConfigProps) {
             });
 
             console.log("✅ Evento actualizado correctamente");
+
+            // Audit Log
+            if (user) {
+                let action: AuditAction = 'UPDATE_EVENT_DETAILS';
+                let details = {};
+
+                switch (activeSection) {
+                    case 'design':
+                        action = 'UPDATE_VENUE_MAP';
+                        const totalCapacity = elements.reduce((acc, el) => acc + (el.capacity || 0), 0);
+                        details = { totalZones: elements.length, totalCapacity };
+                        break;
+                    case 'plan':
+                        action = 'UPDATE_PLAN';
+                        details = { newPlan: activePlan };
+                        break;
+                    case 'distribution':
+                        action = 'UPDATE_DISTRIBUTION';
+                        details = { methods: distributionMethods };
+                        break;
+                }
+
+                await logEventAction(event.id, action, user.uid, details);
+            }
+
             alert("Cambios guardados correctamente");
 
-            // Reload page to reflect changes
             window.location.reload();
         } catch (error) {
             console.error("❌ Error updating event:", error);
@@ -167,48 +271,65 @@ export default function TabConfig({ event }: TabConfigProps) {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row min-h-[600px]">
+        <div className="flex flex-col lg:flex-row min-h-[600px] bg-gray-50 p-6 gap-6">
             {/* Sidebar Navigation */}
-            <div className="w-full lg:w-64 bg-white border-r border-gray-200 p-4 space-y-1">
+            <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-2 transition-all duration-300 flex flex-col ${isSidebarCollapsed ? 'w-20 items-center' : 'w-full lg:w-64'}`}>
+
+                {/* Collapse Toggle */}
+                <div className={`flex ${isSidebarCollapsed ? 'justify-center' : 'justify-end'} mb-2`}>
+                    <button
+                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                        {isSidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+                    </button>
+                </div>
+
                 <button
                     onClick={() => setActiveSection("basic")}
-                    className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeSection === "basic" ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"}`}
+                    className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${activeSection === "basic" ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"} ${isSidebarCollapsed ? 'justify-center w-12 h-12 px-0' : 'w-full'}`}
+                    title={isSidebarCollapsed ? "Información Básica" : ""}
                 >
-                    <Type className="w-4 h-4 mr-3" />
-                    Información Básica
+                    <Type className={`w-5 h-5 ${isSidebarCollapsed ? '' : 'mr-3'}`} />
+                    {!isSidebarCollapsed && "Información Básica"}
                 </button>
                 <button
                     onClick={() => setActiveSection("plan")}
-                    className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeSection === "plan" ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"}`}
+                    className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${activeSection === "plan" ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"} ${isSidebarCollapsed ? 'justify-center w-12 h-12 px-0' : 'w-full'}`}
+                    title={isSidebarCollapsed ? "Plan Actual" : ""}
                 >
-                    <Tag className="w-4 h-4 mr-3" />
-                    Plan Actual
+                    <Tag className={`w-5 h-5 ${isSidebarCollapsed ? '' : 'mr-3'}`} />
+                    {!isSidebarCollapsed && "Plan Actual"}
                 </button>
                 <button
                     onClick={() => setActiveSection("distribution")}
-                    className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeSection === "distribution" ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"}`}
+                    className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${activeSection === "distribution" ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"} ${isSidebarCollapsed ? 'justify-center w-12 h-12 px-0' : 'w-full'}`}
+                    title={isSidebarCollapsed ? "Distribución y Venta" : ""}
                 >
-                    <CreditCard className="w-4 h-4 mr-3" />
-                    Distribución y Venta
+                    <CreditCard className={`w-5 h-5 ${isSidebarCollapsed ? '' : 'mr-3'}`} />
+                    {!isSidebarCollapsed && "Distribución y Venta"}
                 </button>
                 <button
                     onClick={() => setActiveSection("tickets")}
-                    className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeSection === "tickets" ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"}`}
+                    className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${activeSection === "tickets" ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"} ${isSidebarCollapsed ? 'justify-center w-12 h-12 px-0' : 'w-full'}`}
+                    title={isSidebarCollapsed ? "Entradas y Zonas" : ""}
                 >
-                    <Ticket className="w-4 h-4 mr-3" />
-                    Entradas y Zonas
+                    <Ticket className={`w-5 h-5 ${isSidebarCollapsed ? '' : 'mr-3'}`} />
+                    {!isSidebarCollapsed && "Entradas y Zonas"}
                 </button>
                 <button
                     onClick={() => setActiveSection("design")}
-                    className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${activeSection === "design" ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"}`}
+                    className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${activeSection === "design" ? "bg-indigo-50 text-indigo-700" : "text-gray-600 hover:bg-gray-50"} ${isSidebarCollapsed ? 'justify-center w-12 h-12 px-0' : 'w-full'}`}
+                    title={isSidebarCollapsed ? "Diseño" : ""}
                 >
-                    <MapPin className="w-4 h-4 mr-3" />
-                    Diseño
+                    <MapPin className={`w-5 h-5 ${isSidebarCollapsed ? '' : 'mr-3'}`} />
+                    {!isSidebarCollapsed && "Diseño"}
                 </button>
+
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 p-6 bg-gray-50">
+            <div className="flex-1 min-w-0">
                 {activeSection === "basic" && (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 max-w-4xl">
                         <div className="mb-8 border-b border-gray-100 pb-6">
@@ -773,6 +894,8 @@ export default function TabConfig({ event }: TabConfigProps) {
                         <VenueBuilder />
                     </div>
                 )}
+
+
             </div>
         </div >
     );

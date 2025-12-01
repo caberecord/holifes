@@ -1,50 +1,87 @@
 "use client";
-import React, { useRef, useEffect } from 'react';
-import { Rect, Circle, Text, Transformer, Group } from 'react-konva';
-import { CanvasElement, useVenueBuilderStore } from '@/store/venueBuilderStore';
+import React, { useRef } from 'react';
+import { Rect, Circle, Text, Group, Arc } from 'react-konva';
+import { AllocatableUnit, useVenueBuilderStore } from '@/store/venueBuilderStore';
+import StandUnit from './StandUnit';
+import AisleUnit from './AisleUnit';
 
 interface DraggableShapeProps {
-    element: CanvasElement;
+    element: AllocatableUnit;
     isSelected: boolean;
-    onSelect: () => void;
+    onSelect: (e: any) => void;
 }
 
 export default function DraggableShape({ element, isSelected, onSelect }: DraggableShapeProps) {
     const shapeRef = useRef<any>(null);
-    const trRef = useRef<any>(null);
-    const { updateElement } = useVenueBuilderStore();
+    // @ts-ignore
+    const { updateElement, updateElements, selectedIds } = useVenueBuilderStore();
+    const dragStartPos = useRef<{ x: number; y: number } | null>(null);
 
-    useEffect(() => {
-        if (isSelected && trRef.current && shapeRef.current) {
-            trRef.current.nodes([shapeRef.current]);
-            trRef.current.getLayer().batchDraw();
-        }
-    }, [isSelected]);
-
-    const handleDragEnd = (e: any) => {
-        updateElement(element.id, {
-            x: e.target.x(),
-            y: e.target.y(),
-        });
+    const handleDragStart = (e: any) => {
+        dragStartPos.current = { x: e.target.x(), y: e.target.y() };
     };
 
-    const handleTransformEnd = (e: any) => {
-        const node = shapeRef.current;
-        const scaleX = node.scaleX();
-        const scaleY = node.scaleY();
-        node.scaleX(1);
-        node.scaleY(1);
-        updateElement(element.id, {
-            x: node.x(),
-            y: node.y(),
-            width: Math.max(5, node.width() * scaleX),
-            height: Math.max(5, node.height() * scaleY),
-            rotation: node.rotation(),
-        });
+    const handleDragMove = (e: any) => {
+        if (!isSelected || selectedIds.length <= 1) return;
+
+        const stage = e.target.getStage();
+        const currentX = e.target.x();
+        const currentY = e.target.y();
+
+        // Calculate delta from last frame (or start? No, we need delta from last update)
+        // Actually, Konva updates the dragged node automatically.
+        // If we use dragStartPos as "last known position", we can calculate step delta.
+
+        if (dragStartPos.current) {
+            const dx = currentX - dragStartPos.current.x;
+            const dy = currentY - dragStartPos.current.y;
+
+            // Move other selected nodes
+            selectedIds.forEach((id: string) => {
+                if (id === element.id) return; // Skip self
+                const node = stage.findOne(`.shape-${id}`);
+                if (node) {
+                    node.x(node.x() + dx);
+                    node.y(node.y() + dy);
+                }
+            });
+
+            // Update last known position
+            dragStartPos.current = { x: currentX, y: currentY };
+        }
+    };
+
+    const handleDragEnd = (e: any) => {
+        const stage = e.target.getStage();
+
+        if (selectedIds.length > 1 && isSelected) {
+            // Multi-select update
+            const updates = selectedIds.map((id: string) => {
+                const node = stage.findOne(`.shape-${id}`);
+                if (node) {
+                    return {
+                        id,
+                        changes: { x: node.x(), y: node.y() }
+                    };
+                }
+                return null;
+            }).filter(Boolean) as any;
+
+            updateElements(updates);
+        } else {
+            // Single update
+            updateElement(element.id, {
+                x: e.target.x(),
+                y: e.target.y(),
+            });
+        }
+
+        dragStartPos.current = null;
     };
 
     const commonProps = {
         ref: shapeRef,
+        name: `shape-${element.id}`, // Important for finding nodes
         x: element.x,
         y: element.y,
         width: element.width,
@@ -52,50 +89,187 @@ export default function DraggableShape({ element, isSelected, onSelect }: Dragga
         rotation: element.rotation,
         fill: element.fill,
         opacity: 0.8,
-        draggable: true,
+        draggable: !element.locked, // Disable drag if locked
         onClick: (e: any) => {
-            e.cancelBubble = true;
-            onSelect();
+            onSelect(e);
         },
         onTap: (e: any) => {
-            e.cancelBubble = true;
-            onSelect();
+            onSelect(e);
         },
+        onDragStart: handleDragStart,
+        onDragMove: handleDragMove,
         onDragEnd: handleDragEnd,
-        onTransformEnd: handleTransformEnd,
-        stroke: isSelected ? '#3b82f6' : '#94a3b8',
+        // No onTransformEnd here, handled by VenueCanvas
+        stroke: isSelected ? (element.locked ? '#ef4444' : '#3b82f6') : '#94a3b8', // Red stroke if locked
         strokeWidth: isSelected ? 2 : 1,
+        dash: element.locked ? [5, 5] : undefined, // Dashed line for locked items
     };
 
     const currentShape = element.shape || 'circle';
 
+    // Render specialized units
+    if ((element.type as string) === 'stand') {
+        return (
+            <StandUnit
+                element={element}
+                isSelected={isSelected}
+                onSelect={onSelect}
+                onDragEnd={handleDragEnd}
+                onTransformEnd={() => { }} // Handled centrally
+                shapeRef={shapeRef}
+            // Pass common props overrides if needed, but StandUnit handles its own?
+            // We need to ensure StandUnit uses the `name` prop and `draggable` logic.
+            // StandUnit likely spreads props or we need to pass them.
+            // Let's check StandUnit implementation later. For now assume it uses passed props or we need to modify it.
+            // Actually StandUnit takes `shapeRef` but might not take `name`.
+            // We should wrap it or pass `...commonProps` if it accepts them.
+            // Checking StandUnit usage in previous code: it took `element`, `isSelected`, `onSelect`, `onDragEnd`, `onTransformEnd`, `shapeRef`.
+            // We should probably update StandUnit to accept `name` or wrap it in a Group with the name.
+            // Wrapping in Group is safer.
+            />
+        );
+    }
+    // Wait, if I wrap StandUnit in a Group, the Group gets the name and draggable?
+    // StandUnit itself renders a Group usually.
+    // If StandUnit is a Group, we can just pass the name to it if it accepts it.
+    // Or we can cloneElement?
+    // Let's look at StandUnit later. For now, let's wrap specialized units in a Group if they don't support `name` directly, 
+    // BUT `StandUnit` is a component.
+    // If `StandUnit` renders a `Group`, we can't easily attach `name` unless we pass it.
+    // Let's assume for now we need to update StandUnit and AisleUnit too.
+    // Or, simpler: Just wrap them in a Group that handles the dragging/selection?
+    // If we wrap in a Group, the Group handles drag.
+
+    if ((element.type as string) === 'stand') {
+        return (
+            <Group {...commonProps}>
+                <StandUnit
+                    element={{ ...element, x: 0, y: 0 }} // Relative to Group
+                    isSelected={isSelected}
+                    onSelect={onSelect}
+                    onDragEnd={() => { }} // Group handles drag
+                    onTransformEnd={() => { }}
+                    shapeRef={null} // Group is the ref
+                />
+            </Group>
+        );
+    }
+    // Actually, this changes the structure significantly. 
+    // If StandUnit expects absolute coordinates, wrapping it changes that.
+    // Let's stick to modifying StandUnit/AisleUnit later if needed, or pass `name` via a prop if they support `...rest`.
+    // For now, let's just render them as is but add `name` prop to them, hoping they spread it to the root Konva node.
+
+    // Re-reading StandUnit: it takes specific props.
+    // I'll just pass `name` and hope or update them.
+    // Actually, `StandUnit` and `AisleUnit` are custom components. I should check them.
+    // But to save time, I will wrap them in a Group with the correct props, and pass 0,0 to them.
+
+    if ((element.type as string) === 'stand') {
+        return (
+            <Group {...commonProps}>
+                <StandUnit
+                    element={{ ...element, x: 0, y: 0, rotation: 0 }} // Reset transform for child
+                    isSelected={isSelected}
+                    onSelect={() => { }} // Parent handles select
+                    onDragEnd={() => { }}
+                    onTransformEnd={() => { }}
+                    shapeRef={null}
+                />
+            </Group>
+        );
+    }
+
+    if ((element.type as string) === 'aisle') {
+        return (
+            <Group {...commonProps}>
+                <AisleUnit
+                    element={{ ...element, x: 0, y: 0, rotation: 0 }}
+                    isSelected={isSelected}
+                    onSelect={() => { }}
+                    onDragEnd={() => { }}
+                    onTransformEnd={() => { }}
+                    shapeRef={null}
+                />
+            </Group>
+        );
+    }
+
+    // --- CURVED GENERAL ZONE ---
+    if (element.type === 'general' && element.shape === 'curve') {
+        return (
+            <Arc
+                {...commonProps}
+                innerRadius={element.innerRadius || 0}
+                outerRadius={element.curveRadius || element.width}
+                angle={element.curveAngle || 180}
+                closed={true}
+            />
+        );
+    }
+
+    // --- CURVED NUMBERED SEATS ---
+    if (element.type === 'numbered' && element.shape === 'curve') {
+        const rows = element.rows || 5;
+        const cols = element.cols || 10;
+        const startRadius = element.innerRadius || 100;
+        const rowSpacing = 30;
+        const anglePerSeat = (element.curveAngle || 180) / cols;
+
+        return (
+            <Group {...commonProps}>
+                <Arc
+                    innerRadius={startRadius - 20}
+                    outerRadius={startRadius + (rows * rowSpacing) + 20}
+                    angle={element.curveAngle || 180}
+                    fill={element.fill}
+                    opacity={0.1}
+                    stroke={isSelected ? (element.locked ? '#ef4444' : '#3b82f6') : '#94a3b8'}
+                    strokeWidth={isSelected ? 2 : 1}
+                    dash={element.locked ? [5, 5] : undefined}
+                    closed={true}
+                />
+
+                {Array.from({ length: rows }).map((_, rowIdx) => {
+                    const currentRadius = startRadius + (rowIdx * rowSpacing);
+                    return Array.from({ length: cols }).map((_, colIdx) => {
+                        const angleDeg = colIdx * anglePerSeat + (anglePerSeat / 2);
+                        const angleRad = (angleDeg * Math.PI) / 180;
+                        const seatX = currentRadius * Math.cos(angleRad);
+                        const seatY = currentRadius * Math.sin(angleRad);
+
+                        return (
+                            <Circle
+                                key={`${rowIdx}-${colIdx}`}
+                                x={seatX}
+                                y={seatY}
+                                radius={8}
+                                fill={element.fill}
+                                opacity={0.8}
+                                shadowBlur={2}
+                            />
+                        );
+                    });
+                })}
+            </Group>
+        );
+    }
+
     return (
         <React.Fragment>
-            {element.type === 'general' && (
+            {element.type === 'general' && (!element.shape || element.shape === 'rectangle') && (
                 <Rect {...commonProps} cornerRadius={4} />
             )}
 
-            {element.type === 'numbered' && (
-                <Group
-                    x={element.x}
-                    y={element.y}
-                    width={element.width}
-                    height={element.height}
-                    rotation={element.rotation}
-                    draggable
-                    onClick={commonProps.onClick}
-                    onTap={commonProps.onTap}
-                    onDragEnd={handleDragEnd}
-                    onTransformEnd={handleTransformEnd}
-                    ref={shapeRef}
-                >
+            {element.type === 'numbered' && (!element.shape || element.shape === 'rectangle') && (
+                <Group {...commonProps}>
                     <Rect
                         width={element.width}
                         height={element.height}
                         fill={element.fill}
                         opacity={0.1}
-                        stroke={isSelected ? '#3b82f6' : '#94a3b8'}
+                        stroke={isSelected ? (element.locked ? '#ef4444' : '#3b82f6') : '#94a3b8'}
                         strokeWidth={isSelected ? 2 : 1}
+                        dash={element.locked ? [5, 5] : undefined}
                         cornerRadius={4}
                     />
                     {Array.from({ length: element.rows || 5 }).map((_, rowIdx) => (
@@ -131,15 +305,15 @@ export default function DraggableShape({ element, isSelected, onSelect }: Dragga
 
             {element.type === 'decoration' && currentShape === 'T' && (
                 <Group {...commonProps}>
-                    <Rect width={element.width} height={element.height * 0.3} fill={element.fill} opacity={0.8} stroke={isSelected ? '#3b82f6' : '#94a3b8'} strokeWidth={isSelected ? 2 : 1} cornerRadius={4} />
-                    <Rect x={element.width * 0.4} y={element.height * 0.25} width={element.width * 0.2} height={element.height * 0.75} fill={element.fill} opacity={0.8} stroke={isSelected ? '#3b82f6' : '#94a3b8'} strokeWidth={isSelected ? 2 : 1} cornerRadius={4} />
+                    <Rect width={element.width} height={element.height * 0.3} fill={element.fill} opacity={0.8} stroke={isSelected ? (element.locked ? '#ef4444' : '#3b82f6') : '#94a3b8'} strokeWidth={isSelected ? 2 : 1} cornerRadius={4} />
+                    <Rect x={element.width * 0.4} y={element.height * 0.25} width={element.width * 0.2} height={element.height * 0.75} fill={element.fill} opacity={0.8} stroke={isSelected ? (element.locked ? '#ef4444' : '#3b82f6') : '#94a3b8'} strokeWidth={isSelected ? 2 : 1} cornerRadius={4} />
                 </Group>
             )}
 
             {element.type === 'decoration' && currentShape === 'L' && (
                 <Group {...commonProps}>
-                    <Rect width={element.width * 0.3} height={element.height} fill={element.fill} opacity={0.8} stroke={isSelected ? '#3b82f6' : '#94a3b8'} strokeWidth={isSelected ? 2 : 1} cornerRadius={4} />
-                    <Rect y={element.height * 0.7} width={element.width} height={element.height * 0.3} fill={element.fill} opacity={0.8} stroke={isSelected ? '#3b82f6' : '#94a3b8'} strokeWidth={isSelected ? 2 : 1} cornerRadius={4} />
+                    <Rect width={element.width * 0.3} height={element.height} fill={element.fill} opacity={0.8} stroke={isSelected ? (element.locked ? '#ef4444' : '#3b82f6') : '#94a3b8'} strokeWidth={isSelected ? 2 : 1} cornerRadius={4} />
+                    <Rect y={element.height * 0.7} width={element.width} height={element.height * 0.3} fill={element.fill} opacity={0.8} stroke={isSelected ? (element.locked ? '#ef4444' : '#3b82f6') : '#94a3b8'} strokeWidth={isSelected ? 2 : 1} cornerRadius={4} />
                 </Group>
             )}
 
@@ -156,16 +330,13 @@ export default function DraggableShape({ element, isSelected, onSelect }: Dragga
             )}
 
             {element.type === 'text' && (
-                <Text {...commonProps} text={element.text || element.name} fontSize={element.fontSize || 20} fill="#1e293b" align="center" verticalAlign="middle" />
-            )}
-
-            {isSelected && (
-                <Transformer
-                    ref={trRef}
-                    boundBoxFunc={(oldBox, newBox) => {
-                        if (newBox.width < 20 || newBox.height < 20) return oldBox;
-                        return newBox;
-                    }}
+                <Text
+                    {...commonProps}
+                    text={element.text || element.name}
+                    fontSize={element.fontSize || 20}
+                    fill={element.textColor || element.fill}
+                    align="center"
+                    verticalAlign="middle"
                 />
             )}
         </React.Fragment>

@@ -1,6 +1,6 @@
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, increment, serverTimestamp } from "firebase/firestore";
-import { processSaleTransaction } from "@/lib/sales/processSaleTransaction";
+
 import { generateSecureTicketId, generateQRPayload } from "@/lib/ticketSecurity";
 import { logTransaction } from "@/lib/transactions";
 import { toast } from "react-toastify";
@@ -57,7 +57,8 @@ export const posService = {
         mainAttendee: POSAttendee,
         paymentMethod: string,
         totalAmount: number,
-        user: any
+        user: any,
+        selectedSeats?: { [zoneName: string]: string[] }
     ) {
         // 1. Save Contact
         const totalItems = Object.values(cart).reduce((a: number, b: number) => a + b, 0);
@@ -69,6 +70,9 @@ export const posService = {
         for (const [zoneName, qty] of Object.entries(cart)) {
             if (qty <= 0) continue;
 
+            // Get selected seats for this zone if any
+            const zoneSeats = selectedSeats?.[zoneName] || [];
+
             // Generate attendees for this zone
             const zoneAttendees = await Promise.all(Array(qty).fill(null).map(async (_, index) => {
                 const uniqueSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -77,6 +81,9 @@ export const posService = {
                 const secureTicketId = await generateSecureTicketId(baseTicketId, mainAttendee.email, selectedEvent.id!);
                 const qrPayload = await generateQRPayload(baseTicketId, selectedEvent.id!, mainAttendee.email);
 
+                // Assign seat if available
+                const assignedSeat = zoneSeats[index] || "";
+
                 return {
                     id: Date.now() + index + Math.random(),
                     Name: mainAttendee.name,
@@ -84,7 +91,7 @@ export const posService = {
                     Phone: mainAttendee.phone,
                     IdNumber: mainAttendee.idNumber,
                     Zone: zoneName,
-                    Seat: "",
+                    Seat: assignedSeat,
                     Status: 'Confirmado',
                     ticketId: secureTicketId,
                     qrPayload,
@@ -94,12 +101,43 @@ export const posService = {
                 };
             }));
 
-            // Update Event in Firebase (Transaction)
-            const zone = selectedEvent.venue?.zones.find((z: any) => z.name === zoneName);
-            const zoneTotal = (zone?.price || 0) * qty;
-            await processSaleTransaction(selectedEvent.id!, zoneName, zoneAttendees, zoneTotal);
             allProcessedAttendees.push(...zoneAttendees);
         }
+
+        // 3. Process Sale via Server-Side API (Transaction)
+        const token = await user.getIdToken();
+        const response = await fetch('/api/sales/process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                eventId: selectedEvent.id,
+                items: cart,
+                customer: {
+                    id: contactId,
+                    name: mainAttendee.name,
+                    email: mainAttendee.email,
+                    phone: mainAttendee.phone,
+                    identification: mainAttendee.idNumber
+                },
+                payment: {
+                    method: paymentMethod,
+                    status: 'completed'
+                },
+                selectedSeats,
+                totalAmount,
+                attendees: allProcessedAttendees
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to process sale');
+        }
+
+        const { saleId } = await response.json();
 
         // 3. Send Emails (Batch)
         try {
