@@ -1,14 +1,72 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if user is a member of the organization with specific roles
+    function hasOrgRole(orgId, roles) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role in roles;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isAuthenticated(); // Users can read other users (for team view)
+      allow write: if isOwner(userId); // Only the user can edit their own profile
+    }
+
+    // Organizations Collection
+    match /organizations/{orgId} {
+      allow read: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+      allow create: if isAuthenticated(); // Anyone can create an org
+      allow update: if hasOrgRole(orgId, ['owner', 'admin']);
+      
+      // Members Subcollection
+      match /members/{memberId} {
+        allow read: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+        allow write: if hasOrgRole(orgId, ['owner', 'admin']);
+      }
+    }
+
+    // Events Collection
+    match /events/{eventId} {
+      // Allow read if public (published) OR if user is an org member
+      allow read: if resource.data.status == 'published' || 
+        (isAuthenticated() && hasOrgRole(resource.data.organizationId, ['owner', 'admin', 'editor', 'viewer', 'staff']));
+      
+      allow create: if isAuthenticated(); // Validation of org membership happens in backend or via strict rules if orgId is passed
+      
+      allow update: if isAuthenticated() && 
+        hasOrgRole(resource.data.organizationId, ['owner', 'admin', 'editor']);
+      
+      allow delete: if isAuthenticated() && 
+        hasOrgRole(resource.data.organizationId, ['owner']);
+
+      // Subcollections (Attendees, etc.)
+      match /attendees/{attendeeId} {
+        allow read: if isAuthenticated() && 
+          hasOrgRole(get(/databases/$(database)/documents/events/$(eventId)).data.organizationId, ['owner', 'admin', 'editor', 'viewer', 'staff']);
+        allow write: if isAuthenticated() && 
+          hasOrgRole(get(/databases/$(database)/documents/events/$(eventId)).data.organizationId, ['owner', 'admin', 'editor', 'staff']);
+      }
+    }
     
-    // !!! MODO DESARROLLO !!!
-    // Permite lectura y escritura a CUALQUIER usuario (incluso sin loguear)
-    // Útil para evitar problemas de permisos durante el desarrollo.
-    // REVERTIR A REGLAS SEGURAS ANTES DE PRODUCCIÓN.
-    
-    match /{document=**} {
-      allow read, write: if true;
+    // Sales Collection
+    match /sales/{saleId} {
+       allow read: if isAuthenticated() && 
+          hasOrgRole(resource.data.organizerId, ['owner', 'admin', 'editor', 'viewer', 'staff']);
+       allow create: if isAuthenticated(); // Sales are created by authenticated staff or system
     }
   }
 }

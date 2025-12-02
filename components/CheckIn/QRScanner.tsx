@@ -75,7 +75,7 @@ export default function QRScanner({ onScan, isProcessing }: QRScannerProps) {
 
             // 3. IMMEDIATE BLOCK
             isScanningRef.current = false;
-            console.log(`QR Detected: ${decodedText}`);
+            // console.log(`QR Detected: ${decodedText}`);
             playSuccessSound();
 
             // 4. STOP CAMERA

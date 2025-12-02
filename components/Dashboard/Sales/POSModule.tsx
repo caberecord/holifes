@@ -21,6 +21,7 @@ import { POSCart } from "./components/POSCart";
 import { POSCustomerForm } from "./components/POSCustomerForm";
 import { POSPayment } from "./components/POSPayment";
 import { POSSuccess } from "./components/POSSuccess";
+import { POSNequiModal } from "./components/POSNequiModal";
 import { usePOS } from "@/hooks/usePOS";
 import { posService } from "@/services/posService";
 
@@ -59,6 +60,10 @@ export default function POSModule() {
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
+    // Nequi State
+    const [nequiTransactionId, setNequiTransactionId] = useState<string>("");
+    const [isNequiModalOpen, setIsNequiModalOpen] = useState(false);
+
     const {
         cart,
         setCart,
@@ -68,6 +73,8 @@ export default function POSModule() {
         setPaymentMethod,
         cashReceived,
         setCashReceived,
+        nequiPhone,
+        setNequiPhone,
         isProcessing,
         lastSaleData,
         soldByZone,
@@ -188,7 +195,45 @@ export default function POSModule() {
     };
 
     const handleCompleteSale = async () => {
-        await processSale(() => setCurrentStep(5));
+        if (paymentMethod === 'nequi') {
+            if (!nequiPhone || nequiPhone.length < 10) {
+                toast.error("Ingresa un número de celular válido para Nequi");
+                return;
+            }
+
+            try {
+                // 1. Initiate Nequi Payment
+                const res = await fetch('/api/pos/nequi/initiate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone: nequiPhone,
+                        amount: totalAmount,
+                        orderId: `POS-${Date.now()}`
+                    })
+                });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.error || 'Error iniciando pago Nequi');
+
+                setNequiTransactionId(data.transactionId);
+                setIsNequiModalOpen(true);
+            } catch (error: any) {
+                toast.error(error.message);
+            }
+            return;
+        }
+
+        await processSale(() => {
+            setCurrentStep(5);
+        });
+    };
+
+    const handleNequiSuccess = async () => {
+        setIsNequiModalOpen(false);
+        await processSale(() => {
+            setCurrentStep(5);
+        });
     };
 
     const handleNewSale = () => {
@@ -340,6 +385,8 @@ export default function POSModule() {
                                 setPaymentMethod={setPaymentMethod}
                                 cashReceived={cashReceived}
                                 setCashReceived={setCashReceived}
+                                nequiPhone={nequiPhone}
+                                setNequiPhone={setNequiPhone}
                                 totalAmount={totalAmount}
                                 onCompleteSale={handleCompleteSale}
                                 isProcessing={isProcessing}
@@ -459,8 +506,24 @@ export default function POSModule() {
                                     <div className="mt-6 pt-4 border-t border-dashed border-gray-200 animate-slide-in">
                                         <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Pago con</div>
                                         <div className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-                                            {paymentMethod === 'card' ? <CreditCard size={16} className="text-indigo-600" /> : <Banknote size={16} className="text-green-600" />}
-                                            {paymentMethod === 'card' ? 'Tarjeta de Crédito' : 'Efectivo'}
+                                            {paymentMethod === 'card' && (
+                                                <>
+                                                    <CreditCard size={16} className="text-indigo-600" />
+                                                    Tarjeta de Crédito
+                                                </>
+                                            )}
+                                            {paymentMethod === 'cash' && (
+                                                <>
+                                                    <Banknote size={16} className="text-green-600" />
+                                                    Efectivo
+                                                </>
+                                            )}
+                                            {paymentMethod === 'nequi' && (
+                                                <>
+                                                    <img src="/ico_nequi.png" alt="Nequi" className="w-4 h-4 object-contain" />
+                                                    Nequi
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -515,6 +578,14 @@ export default function POSModule() {
                     </div>
                 )}
             </div>
+
+            <POSNequiModal
+                isOpen={isNequiModalOpen}
+                onClose={() => setIsNequiModalOpen(false)}
+                transactionId={nequiTransactionId}
+                onSuccess={handleNequiSuccess}
+                onCancel={() => setIsNequiModalOpen(false)}
+            />
         </>
     );
 }

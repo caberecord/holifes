@@ -11,6 +11,7 @@ import {
 import { OrganizationMember, OrganizationRole } from "@/features/organizations/types/member.schema";
 import { AddMemberModal } from "./AddMemberModal";
 import { Plus, MoreVertical, Trash2, Shield, User, Eye, Loader2, BadgeCheck } from "lucide-react";
+import PermissionsMatrix from "@/components/Settings/Team/PermissionsMatrix";
 
 export const TeamManagement = () => {
     const { currentOrganization, user } = useAuth();
@@ -123,110 +124,140 @@ export const TeamManagement = () => {
         }
     };
 
+    const [activeTab, setActiveTab] = useState<'members' | 'permissions'>('members');
+
     if (!currentOrganization) return null;
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Miembros del Equipo</h2>
-                    <p className="text-sm text-gray-500">Gestiona quién tiene acceso a tu organización.</p>
+                    <h2 className="text-lg font-semibold text-gray-900">Gestión del Equipo</h2>
+                    <p className="text-sm text-gray-500">Administra miembros y configura sus niveles de acceso.</p>
                 </div>
+                {activeTab === 'members' && (
+                    <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Agregar Miembro
+                    </button>
+                )}
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200">
                 <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                    onClick={() => setActiveTab('members')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'members'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                        }`}
                 >
-                    <Plus className="w-4 h-4" />
-                    Agregar Miembro
+                    Miembros
+                </button>
+                <button
+                    onClick={() => setActiveTab('permissions')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'permissions'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                        }`}
+                >
+                    Roles y Permisos
                 </button>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                {loading ? (
-                    <div className="flex items-center justify-center p-8">
-                        <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-                    </div>
-                ) : (
-                    <table className="w-full text-left">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuario</th>
-                                <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Rol</th>
-                                <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
-                                <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Fecha de Ingreso</th>
-                                <th className="px-6 py-3 text-right"></th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {members.map((member) => (
-                                <tr key={member.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-medium">
-                                                {member.userId.substring(0, 2).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-900">
-                                                    {member.userId.startsWith('invited_') ? member.userId.replace('invited_', '') : 'Usuario'}
-                                                </p>
-                                                <p className="text-xs text-gray-500">{member.userId}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            {getRoleIcon(member.role)}
-                                            {member.role === 'owner' ? (
-                                                <span className="text-sm text-gray-700">{getRoleLabel(member.role)}</span>
-                                            ) : (
-                                                <select
-                                                    value={member.role}
-                                                    onChange={(e) => handleRoleChange(member.id, e.target.value as OrganizationRole)}
-                                                    disabled={actionLoading === member.id}
-                                                    className="text-sm bg-transparent border-none focus:ring-0 cursor-pointer hover:text-indigo-600"
-                                                >
-                                                    <option value="admin">Administrador</option>
-                                                    <option value="member">Miembro</option>
-                                                    <option value="viewer">Observador</option>
-                                                    <option value="staff">Staff / Operador</option>
-                                                </select>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${member.status === 'active' ? 'bg-green-100 text-green-800' :
-                                            member.status === 'invited' ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-red-100 text-red-800'
-                                            }`}>
-                                            {member.status === 'active' ? 'Activo' :
-                                                member.status === 'invited' ? 'Invitado' : 'Suspendido'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-gray-500">
-                                        {new Date(member.joinedAt).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        {member.role !== 'owner' && (
-                                            <button
-                                                onClick={() => handleRemoveMember(member.id)}
-                                                disabled={actionLoading === member.id}
-                                                className="text-gray-400 hover:text-red-600 transition-colors"
-                                                title="Eliminar miembro"
-                                            >
-                                                {actionLoading === member.id ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                ) : (
-                                                    <Trash2 className="w-4 h-4" />
-                                                )}
-                                            </button>
-                                        )}
-                                    </td>
+            {activeTab === 'members' ? (
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    {loading ? (
+                        <div className="flex items-center justify-center p-8">
+                            <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                        </div>
+                    ) : (
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuario</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Rol</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Fecha de Ingreso</th>
+                                    <th className="px-6 py-3 text-right"></th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {members.map((member) => (
+                                    <tr key={member.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-medium">
+                                                    {member.userId.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900">
+                                                        {member.userId.startsWith('invited_') ? member.userId.replace('invited_', '') : 'Usuario'}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">{member.userId}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                {getRoleIcon(member.role)}
+                                                {member.role === 'owner' ? (
+                                                    <span className="text-sm text-gray-700">{getRoleLabel(member.role)}</span>
+                                                ) : (
+                                                    <select
+                                                        value={member.role}
+                                                        onChange={(e) => handleRoleChange(member.id, e.target.value as OrganizationRole)}
+                                                        disabled={actionLoading === member.id}
+                                                        className="text-sm bg-transparent border-none focus:ring-0 cursor-pointer hover:text-indigo-600"
+                                                    >
+                                                        <option value="admin">Administrador</option>
+                                                        <option value="member">Miembro</option>
+                                                        <option value="viewer">Observador</option>
+                                                        <option value="staff">Staff / Operador</option>
+                                                    </select>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${member.status === 'active' ? 'bg-green-100 text-green-800' :
+                                                member.status === 'invited' ? 'bg-yellow-100 text-yellow-800' :
+                                                    'bg-red-100 text-red-800'
+                                                }`}>
+                                                {member.status === 'active' ? 'Activo' :
+                                                    member.status === 'invited' ? 'Invitado' : 'Suspendido'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                            {new Date(member.joinedAt).toLocaleDateString()}
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            {member.role !== 'owner' && (
+                                                <button
+                                                    onClick={() => handleRemoveMember(member.id)}
+                                                    disabled={actionLoading === member.id}
+                                                    className="text-gray-400 hover:text-red-600 transition-colors"
+                                                    title="Eliminar miembro"
+                                                >
+                                                    {actionLoading === member.id ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="w-4 h-4" />
+                                                    )}
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            ) : (
+                <PermissionsMatrix />
+            )}
 
             <AddMemberModal
                 isOpen={isAddModalOpen}

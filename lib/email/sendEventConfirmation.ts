@@ -66,7 +66,7 @@ export async function sendEventConfirmationEmail({
     const resend = getResendClient();
     const senderEmail = process.env.RESEND_FROM_EMAIL || FROM_EMAIL;
 
-    console.log(`📧 Sending confirmation from: ${senderEmail}`);
+    // console.log(`📧 Sending confirmation from: ${senderEmail}`);
 
     const { data, error } = await resend.emails.send({
       from: senderEmail,
@@ -80,7 +80,7 @@ export async function sendEventConfirmationEmail({
       throw new Error(`Resend API Error: ${error.message}`);
     }
 
-    console.log(`✅ Event confirmation sent to: ${email}`, data);
+    // console.log(`✅ Event confirmation sent to: ${email}`, data);
   } catch (error) {
     console.error('Error sending event confirmation email:', error);
     throw error;

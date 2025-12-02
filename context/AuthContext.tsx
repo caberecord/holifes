@@ -119,8 +119,9 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
 
                         // Set default org (first one or from local storage preference)
                         if (userOrgs.length > 0) {
-                            // TODO: Check localStorage for 'lastOrgId'
-                            setCurrentOrganization(userOrgs[0]);
+                            const lastOrgId = localStorage.getItem('lastOrgId');
+                            const savedOrg = lastOrgId ? userOrgs.find(o => o.id === lastOrgId) : null;
+                            setCurrentOrganization(savedOrg || userOrgs[0]);
                         } else {
                             setCurrentOrganization(null);
                         }
@@ -218,7 +219,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         const org = organizations.find(o => o.id === orgId);
         if (org) {
             setCurrentOrganization(org);
-            // TODO: Save to localStorage
+            localStorage.setItem('lastOrgId', org.id);
         }
     };
 

@@ -25,6 +25,16 @@ export default function IntegrationsTab() {
         isSandbox: true,
     });
 
+    const [nequiConfig, setNequiConfig] = useState({
+        clientId: "",
+        clientSecret: "",
+        apiKey: "",
+        authUrl: "https://oauth.nequi.com/oauth2/v4/token",
+        apiUrl: "https://api.nequi.com",
+        isConnected: false
+    });
+    const [nequiExpanded, setNequiExpanded] = useState(false);
+
     useEffect(() => {
         loadConfig();
     }, []);
@@ -40,6 +50,9 @@ export default function IntegrationsTab() {
                 } else {
                     // Pre-fill email if available
                     setAlegraConfig(prev => ({ ...prev, email: user.email || "" }));
+                }
+                if (data.nequi) {
+                    setNequiConfig(prev => ({ ...prev, ...data.nequi }));
                 }
             }
         } catch (error) {
@@ -126,7 +139,8 @@ export default function IntegrationsTab() {
             // Save to Firestore inside companyData
             // We use merge: true to not overwrite other company fields
             await setDoc(doc(db, "users", user.uid, "companyData", "info"), {
-                alegra: alegraConfig
+                alegra: alegraConfig,
+                nequi: nequiConfig
             }, { merge: true });
 
             showToast.success("Configuración guardada");
@@ -335,6 +349,94 @@ export default function IntegrationsTab() {
                                 )}
                             </div>
                         )}
+                    </div>
+                </div>
+            </div>
+            {/* Nequi Card */}
+            <div className="bg-white/80 backdrop-blur-md border border-gray-200 rounded-2xl p-6 shadow-sm transition-all duration-300 hover:shadow-md">
+                <div
+                    className="flex items-start justify-between cursor-pointer"
+                    onClick={() => setNequiExpanded(!nequiExpanded)}
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-lg bg-pink-50 flex items-center justify-center p-2">
+                            <img src="/ico_nequi.png" alt="Nequi" className="w-full h-full object-contain" onError={(e) => e.currentTarget.src = "https://via.placeholder.com/32?text=N"} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                Nequi Colombia
+                                {nequiConfig.isConnected ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                                        Activo
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                        <XCircle className="w-3 h-3 mr-1" />
+                                        Inactivo
+                                    </span>
+                                )}
+                            </h3>
+                            <p className="text-sm text-gray-500">Recibe pagos con notificación Push al celular del cliente.</p>
+                        </div>
+                    </div>
+                    <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${nequiExpanded ? 'rotate-90' : ''}`} />
+                </div>
+
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${nequiExpanded ? 'max-h-[800px] opacity-100 mt-6' : 'max-h-0 opacity-0'}`}>
+                    <div className="space-y-4 max-w-2xl border-t border-gray-100 pt-6">
+                        <div className="grid grid-cols-1 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Client ID</label>
+                                <input
+                                    type="text"
+                                    value={nequiConfig.clientId}
+                                    onChange={(e) => setNequiConfig({ ...nequiConfig, clientId: e.target.value, isConnected: true })}
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none"
+                                    placeholder="Tu Client ID de Nequi"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Client Secret</label>
+                                <input
+                                    type="password"
+                                    value={nequiConfig.clientSecret}
+                                    onChange={(e) => setNequiConfig({ ...nequiConfig, clientSecret: e.target.value, isConnected: true })}
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none"
+                                    placeholder="Tu Client Secret"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                                <input
+                                    type="password"
+                                    value={nequiConfig.apiKey}
+                                    onChange={(e) => setNequiConfig({ ...nequiConfig, apiKey: e.target.value, isConnected: true })}
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none"
+                                    placeholder="Tu API Key"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-4">
+                            <button
+                                onClick={handleSave}
+                                disabled={isSaving}
+                                className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center shadow-lg hover:shadow-xl"
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                        Guardando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="w-4 h-4 mr-2" />
+                                        Guardar Credenciales
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

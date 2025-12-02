@@ -33,7 +33,7 @@ export default function TabConfig({ event }: TabConfigProps) {
     // Load existing venue data when switching to design section
     useEffect(() => {
         if (activeSection === "design" && event.venue?.venueMap) {
-            console.log("📥 Loading venue data:", event.venue.venueMap);
+            // console.log("📥 Loading venue data:", event.venue.venueMap);
 
             // Check for sold zones and lock them
             const soldSeats = event.soldSeats || [];
@@ -200,12 +200,12 @@ export default function TabConfig({ event }: TabConfigProps) {
                     return;
                 }
 
-                console.log("💾 Guardando diseño:", {
-                    totalZones: zones.length,
-                    totalCapacity,
-                    zones,
-                    venueMap: venueData.venueMap
-                });
+                // console.log("💾 Guardando diseño:", {
+                //     totalZones: zones.length,
+                //     totalCapacity,
+                //     zones,
+                //     venueMap: venueData.venueMap
+                // });
             }
 
             await updateDoc(eventRef, {
@@ -233,7 +233,7 @@ export default function TabConfig({ event }: TabConfigProps) {
                 })
             });
 
-            console.log("✅ Evento actualizado correctamente");
+            // console.log("✅ Evento actualizado correctamente");
 
             // Audit Log
             if (user) {

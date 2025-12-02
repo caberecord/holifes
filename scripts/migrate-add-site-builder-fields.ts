@@ -27,18 +27,18 @@ initializeApp({
 const db = getFirestore();
 
 async function migrateEvents() {
-    console.log('🚀 Iniciando migración de eventos...');
+    // console.log('🚀 Iniciando migración de eventos...');
 
     try {
         // Obtener todos los eventos
         const eventsSnapshot = await db.collection('events').get();
 
         if (eventsSnapshot.empty) {
-            console.log('No hay eventos para migrar.');
+            // console.log('No hay eventos para migrar.');
             return;
         }
 
-        console.log(`📊 Encontrados ${eventsSnapshot.size} eventos para procesar`);
+        // console.log(`📊 Encontrados ${eventsSnapshot.size} eventos para procesar`);
 
         let updatedCount = 0;
         let skippedCount = 0;
@@ -128,7 +128,7 @@ async function migrateEvents() {
             if (needsUpdate) {
                 batch.update(doc.ref, updates);
                 updatedCount++;
-                console.log(`✅ Evento "${event.name}" → subdomain: ${updates.subdomain || event.subdomain}`);
+                // console.log(`✅ Evento "${event.name}" → subdomain: ${updates.subdomain || event.subdomain}`);
             } else {
                 skippedCount++;
             }
@@ -137,11 +137,11 @@ async function migrateEvents() {
         // Commit batch
         if (updatedCount > 0) {
             await batch.commit();
-            console.log(`\n✨ Migración completada:`);
-            console.log(`   - ${updatedCount} eventos actualizados`);
-            console.log(`   - ${skippedCount} eventos omitidos (ya tenían los campos)`);
+            // console.log(`\n✨ Migración completada:`);
+            // console.log(`   - ${updatedCount} eventos actualizados`);
+            // console.log(`   - ${skippedCount} eventos omitidos (ya tenían los campos)`);
         } else {
-            console.log(`\n✅ Todos los eventos ya tienen los campos necesarios`);
+            // console.log(`\n✅ Todos los eventos ya tienen los campos necesarios`);
         }
 
     } catch (error) {
@@ -153,7 +153,7 @@ async function migrateEvents() {
 // Ejecutar migración
 migrateEvents()
     .then(() => {
-        console.log('\n🎉 Migración finalizada exitosamente');
+        // console.log('\n🎉 Migración finalizada exitosamente');
         process.exit(0);
     })
     .catch((error) => {

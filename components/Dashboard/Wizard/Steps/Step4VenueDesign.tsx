@@ -127,7 +127,7 @@ export default function Step4VenueDesign() {
 
             // Save to Firestore
             const docRef = await addDoc(collection(db, "events"), eventData);
-            console.log("Event created with ID: ", docRef.id);
+            // console.log("Event created with ID: ", docRef.id);
 
             // 3. Save Uploaded Guests to Subcollection
             if (distribution.uploadedGuests.length > 0) {

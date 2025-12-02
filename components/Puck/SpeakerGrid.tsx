@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 interface Speaker {
     name: string;
     role: string;
@@ -106,10 +108,12 @@ export function SpeakerGrid({
                             {/* Speaker Image */}
                             <div className="relative h-64 overflow-hidden bg-gray-200">
                                 {speaker.image ? (
-                                    <img
+                                    <Image
                                         src={speaker.image}
                                         alt={speaker.name}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                        fill
+                                        className="object-cover group-hover:scale-110 transition-transform duration-500"
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">

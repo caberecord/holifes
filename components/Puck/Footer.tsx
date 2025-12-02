@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { Facebook, Instagram, Twitter, Youtube, Linkedin, Globe, Mail, Phone } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 interface FooterProps {
     backgroundColor?: string;
@@ -104,10 +105,12 @@ export function Footer({
                     <h3 className="text-lg font-bold mb-2">Organizado por</h3>
                     <div className="flex items-center gap-3">
                         {organizer?.photoURL && (
-                            <img
+                            <Image
                                 src={organizer.photoURL}
                                 alt={displayName}
-                                className="w-12 h-12 rounded-full object-cover border-2 border-white/10"
+                                width={48}
+                                height={48}
+                                className="rounded-full object-cover border-2 border-white/10"
                             />
                         )}
                         <div>
@@ -211,10 +214,13 @@ export function Footer({
                     rel="noopener noreferrer"
                     className="transition-opacity hover:opacity-80"
                 >
-                    <img
+                    <Image
                         src="/logo_blanco_holifes.png"
                         alt="Holifes"
+                        width={120}
+                        height={32}
                         className="h-8 w-auto"
+                        style={{ width: 'auto', height: '32px' }}
                     />
                 </a>
             </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { MessageCircle, X, Send } from 'lucide-react';
+import Image from 'next/image';
 
 interface FloatingChatProps {
     position?: 'bottom-left' | 'bottom-right';
@@ -43,10 +44,12 @@ export const FloatingChat = ({
                         style={{ backgroundColor: backgroundColor, color: textColor }}
                     >
                         <div className="relative">
-                            <img
+                            <Image
                                 src={profileImage}
                                 alt={chatName}
-                                className="w-10 h-10 rounded-full object-cover border-2 border-white/20"
+                                width={40}
+                                height={40}
+                                className="rounded-full object-cover border-2 border-white/20"
                             />
                             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
                         </div>
@@ -86,16 +89,17 @@ export const FloatingChat = ({
             {/* Toggle Button */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 overflow-hidden"
+                className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110 active:scale-95 overflow-hidden relative"
                 style={{ backgroundColor: backgroundColor, color: textColor }}
             >
                 {isOpen ? (
                     <X size={28} />
                 ) : (
-                    <img
+                    <Image
                         src="/ico_whatsapp.png"
                         alt="WhatsApp"
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
                     />
                 )}
             </button>

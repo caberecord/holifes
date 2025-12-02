@@ -37,6 +37,7 @@ export default function SitesLayout({
     return (
         <html lang="es">
             <body
+                suppressHydrationWarning={true}
                 className={`
           ${inter.variable}
           ${montserrat.variable}

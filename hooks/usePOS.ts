@@ -178,6 +178,8 @@ export const usePOS = (user: any, selectedEvent: Event | null) => {
         setCashReceived("");
     };
 
+    const [nequiPhone, setNequiPhone] = useState<string>("");
+
     return {
         cart,
         setCart,
@@ -187,6 +189,8 @@ export const usePOS = (user: any, selectedEvent: Event | null) => {
         setPaymentMethod,
         cashReceived,
         setCashReceived,
+        nequiPhone,
+        setNequiPhone,
         isProcessing,
         lastSaleData,
         soldByZone,

@@ -5,6 +5,7 @@ import { Check, AlertCircle, Loader2 } from "lucide-react";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
+import { EventPlanSchema } from "@/lib/schemas/eventSchema";
 
 interface PlanConfig {
     name: string;
@@ -36,11 +37,11 @@ export default function Step2PlanSelection() {
             }
 
             try {
-                console.log("Fetching plan config...");
+                // console.log("Fetching plan config...");
                 // 1. Load Plan Configuration
                 const planDoc = await getDoc(doc(db, "config", "plans"));
                 if (planDoc.exists()) {
-                    console.log("Plan config found:", planDoc.data());
+                    // console.log("Plan config found:", planDoc.data());
                     setPlansConfig(planDoc.data() as PlansData);
                 } else {
                     console.warn("Plan config not found, using defaults");
@@ -73,7 +74,7 @@ export default function Step2PlanSelection() {
                 }
 
                 // 2. Load User's Freemium Event History for this month
-                console.log("Fetching user freemium events...");
+                // console.log("Fetching user freemium events...");
                 const now = new Date();
                 const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -85,7 +86,7 @@ export default function Step2PlanSelection() {
                 );
 
                 const snapshot = await getDocs(q);
-                console.log("User freemium events fetched:", snapshot.size);
+                // console.log("User freemium events fetched:", snapshot.size);
                 setFreemiumEventsThisMonth(snapshot.size);
 
             } catch (error) {
@@ -99,8 +100,12 @@ export default function Step2PlanSelection() {
     }, [appUser]);
 
     const handleContinue = () => {
-        if (selectedPlan) {
+        const result = EventPlanSchema.safeParse({ plan: selectedPlan });
+        if (result.success) {
             setStep(3);
+        } else {
+            console.error("Plan validation failed", result.error);
+            // Optional: show toast error
         }
     };
 

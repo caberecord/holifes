@@ -15,6 +15,7 @@ export interface Event {
         lng: number;
     };
     category?: string;
+    currency?: string;
 
     // ISO Date strings (computed or stored)
     startDate?: string;

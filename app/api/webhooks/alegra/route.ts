@@ -18,7 +18,7 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { event, data } = body;
 
-        console.log("Alegra Webhook Received:", event, data?.id);
+        // console.log("Alegra Webhook Received:", event, data?.id);
 
         // Security Check: In a real app, verify signature from headers
         // const signature = req.headers.get('x-alegra-signature');
@@ -82,10 +82,10 @@ async function handleInvoiceUpdate(invoiceData: any) {
                     updatedAt: serverTimestamp()
                 });
 
-                console.log(`Updated transaction ${docSnap.id} status to ${newStatus}`);
+                // console.log(`Updated transaction ${docSnap.id} status to ${newStatus}`);
             }
         } else {
-            console.log(`No matching transaction found for Alegra Invoice ID: ${invoiceData.id}`);
+            // console.log(`No matching transaction found for Alegra Invoice ID: ${invoiceData.id}`);
         }
     } catch (error) {
         console.error("Error updating transaction from webhook:", error);

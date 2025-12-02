@@ -73,7 +73,7 @@ export async function generateEventSiteTheme(
 
     for (const modelName of modelsToTry) {
         try {
-            console.log(`Attempting to generate with model: ${modelName}`);
+            // console.log(`Attempting to generate with model: ${modelName}`);
             const model = genAI.getGenerativeModel({ model: modelName });
 
             const prompt = `

@@ -187,7 +187,7 @@ export async function sendTicketEmail({
     const resend = getResendClient();
     const senderEmail = process.env.RESEND_FROM_EMAIL || FROM_EMAIL;
 
-    console.log(`📧 Sending ticket from: ${senderEmail}`);
+    // console.log(`📧 Sending ticket from: ${senderEmail}`);
 
     const { data, error } = await resend.emails.send({
       from: senderEmail,
@@ -201,7 +201,7 @@ export async function sendTicketEmail({
       throw new Error(`Resend API Error: ${error.message}`);
     }
 
-    console.log(`✅ Ticket sent to: ${email}`, data);
+    // console.log(`✅ Ticket sent to: ${email}`, data);
   } catch (error) {
     console.error('Error sending ticket email:', error);
     throw error;

@@ -159,7 +159,7 @@ export async function sendStaffCredentials({
     const resend = getResendClient();
     const senderEmail = process.env.RESEND_FROM_EMAIL || FROM_EMAIL;
 
-    console.log(`📧 Sending email from: ${senderEmail}`);
+    // console.log(`📧 Sending email from: ${senderEmail}`);
 
     const { data, error } = await resend.emails.send({
       from: senderEmail,
@@ -173,7 +173,7 @@ export async function sendStaffCredentials({
       throw new Error(`Resend API Error: ${error.message}`);
     }
 
-    console.log(`✅ Staff credentials sent to: ${email}`, data);
+    // console.log(`✅ Staff credentials sent to: ${email}`, data);
   } catch (error) {
     console.error('Error sending staff credentials email:', error);
     throw error; // Re-throw to be caught by the API route

@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { useEventContext } from '../../lib/context/EventContext';
 import { Ticket } from 'lucide-react';
+import { CheckoutModal } from '../Public/Checkout/CheckoutModal';
 
 interface TicketPricingProps {
     title?: string;
@@ -25,6 +27,13 @@ export function TicketPricing({
     fontFamily = "inter"
 }: TicketPricingProps) {
     const event = useEventContext();
+    const [selectedZone, setSelectedZone] = useState<any>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const handleBuyClick = (zone: any) => {
+        setSelectedZone(zone);
+        setIsModalOpen(true);
+    };
 
     const zones = event?.venue?.zones || [];
     const uploadedGuests = event?.distribution?.uploadedGuests || [];
@@ -161,7 +170,7 @@ export function TicketPricing({
                                     <div className="p-4 border-t border-gray-100 bg-gray-50/50">
                                         <button
                                             className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors shadow-md"
-                                            onClick={() => alert(`Comprando entrada para: ${zone.name}`)}
+                                            onClick={() => handleBuyClick(zone)}
                                         >
                                             {buyButtonText}
                                         </button>
@@ -172,6 +181,18 @@ export function TicketPricing({
                     })}
                 </div>
             </div>
+
+            {selectedZone && event && (
+                <CheckoutModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    zoneName={selectedZone.name}
+                    price={selectedZone.price}
+                    currency={event.currency || 'USD'}
+                    tenantId={event.organizerId} // Assuming organizerId is the tenantId
+                    connectedAccountId={event.organizerId} // This should ideally be the Stripe Account ID, but using organizerId for now as placeholder or if mapped
+                />
+            )}
         </section>
     );
 }

@@ -87,7 +87,7 @@ export interface VenueBuilderState {
     setViewMode: (mode: 'normal' | 'heatmap') => void;
     toggle3DPreview: () => void;
 
-    addElement: (type: ElementType, x: number, y: number) => void;
+    addElement: (type: ElementType | 'general-curve' | 'seat-curve' | 'seat-matrix', x: number, y: number) => void;
     updateElement: (id: string, updates: Partial<AllocatableUnit>) => void;
     updateElements: (updates: { id: string; changes: Partial<AllocatableUnit> }[]) => void;
     removeElements: (ids: string[]) => void;
@@ -228,10 +228,10 @@ export const useVenueBuilderStore = create<VenueBuilderState>((set, get) => ({
         };
 
         // Handle special tool types that map to base element types
-        let actualType = type;
+        let actualType: ElementType;
         let extraProps: Partial<AllocatableUnit> = {};
 
-        if (type === 'general-curve' as any) {
+        if (type === 'general-curve') {
             actualType = 'general';
             extraProps = {
                 shape: 'curve',
@@ -241,7 +241,7 @@ export const useVenueBuilderStore = create<VenueBuilderState>((set, get) => ({
                 curveAngle: 180,
                 innerRadius: 50
             };
-        } else if (type === 'seat-curve' as any) {
+        } else if (type === 'seat-curve') {
             actualType = 'numbered';
             extraProps = {
                 shape: 'curve',
@@ -253,8 +253,10 @@ export const useVenueBuilderStore = create<VenueBuilderState>((set, get) => ({
                 rows: 5,
                 cols: 10
             };
-        } else if (type === 'seat-matrix' as any) {
+        } else if (type === 'seat-matrix') {
             actualType = 'numbered';
+        } else {
+            actualType = type;
         }
 
         const defaults = typeDefaults[actualType] || {};

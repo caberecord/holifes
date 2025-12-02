@@ -1,4 +1,4 @@
-import { jsPDF } from "jspdf";
+import type { jsPDF } from "jspdf";
 
 export interface TicketData {
     ticketId: string;
@@ -104,6 +104,7 @@ async function drawTicket(doc: jsPDF, ticket: TicketData) {
 }
 
 export async function generateTicketPDFBuffer(ticket: TicketData): Promise<ArrayBuffer> {
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -115,6 +116,7 @@ export async function generateTicketPDFBuffer(ticket: TicketData): Promise<Array
 }
 
 export async function generateBatchTicketPDF(tickets: TicketData[]): Promise<ArrayBuffer> {
+    const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",

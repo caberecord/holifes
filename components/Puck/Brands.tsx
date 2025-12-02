@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 
 interface Brand {
     name: string;
@@ -75,26 +76,32 @@ export function Brands({
 
                 <div className="flex flex-wrap justify-center items-center gap-12 md:gap-16">
                     {brands.map((brand, index) => (
-                        <div key={index} className="group relative">
+                        <div key={index} className="group relative h-12 md:h-16 w-32 md:w-40">
                             {brand.url ? (
                                 <a
                                     href={brand.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="block transition-transform hover:scale-105"
+                                    className="block w-full h-full transition-transform hover:scale-105 relative"
                                 >
-                                    <img
+                                    <Image
                                         src={brand.image}
                                         alt={brand.name}
-                                        className="h-12 md:h-16 w-auto object-contain grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300"
+                                        fill
+                                        className="object-contain grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300"
+                                        sizes="(max-width: 768px) 128px, 160px"
                                     />
                                 </a>
                             ) : (
-                                <img
-                                    src={brand.image}
-                                    alt={brand.name}
-                                    className="h-12 md:h-16 w-auto object-contain grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300"
-                                />
+                                <div className="relative w-full h-full">
+                                    <Image
+                                        src={brand.image}
+                                        alt={brand.name}
+                                        fill
+                                        className="object-contain grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-300"
+                                        sizes="(max-width: 768px) 128px, 160px"
+                                    />
+                                </div>
                             )}
                         </div>
                     ))}

@@ -3,7 +3,7 @@
  * Generates printable tickets in PDF format (4 per page)
  */
 
-import jsPDF from 'jspdf';
+
 
 interface TicketData {
     ticketId: string;
@@ -21,7 +21,8 @@ interface TicketData {
  * @param tickets - Array of ticket data
  * @param filename - Name for the downloaded PDF file
  */
-export function generateTicketsPDF(tickets: TicketData[], filename: string = 'tickets.pdf') {
+export async function generateTicketsPDF(tickets: TicketData[], filename: string = 'tickets.pdf') {
+    const jsPDF = (await import('jspdf')).default;
     const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',

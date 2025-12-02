@@ -37,9 +37,9 @@ export async function getSubdomainFromCache(subdomain: string): Promise<string |
         const eventId = await redis.get<string>(key);
 
         if (eventId) {
-            console.log(`[Redis] Cache HIT for subdomain: ${subdomain} → Event ID: ${eventId}`);
+            // console.log(`[Redis] Cache HIT for subdomain: ${subdomain} → Event ID: ${eventId}`);
         } else {
-            console.log(`[Redis] Cache MISS for subdomain: ${subdomain}`);
+            // console.log(`[Redis] Cache MISS for subdomain: ${subdomain}`);
         }
 
         return eventId;
@@ -63,7 +63,7 @@ export async function setSubdomainCache(subdomain: string, eventId: string): Pro
     try {
         const key = `${SUBDOMAIN_PREFIX}${subdomain}`;
         await redis.setex(key, SUBDOMAIN_TTL, eventId);
-        console.log(`[Redis] Cached subdomain: ${subdomain} → Event ID: ${eventId} (TTL: ${SUBDOMAIN_TTL}s)`);
+        // console.log(`[Redis] Cached subdomain: ${subdomain} → Event ID: ${eventId} (TTL: ${SUBDOMAIN_TTL}s)`);
     } catch (error) {
         console.error(`[Redis] Error caching subdomain ${subdomain}:`, error);
     }
@@ -83,7 +83,7 @@ export async function invalidateSubdomainCache(subdomain: string): Promise<void>
     try {
         const key = `${SUBDOMAIN_PREFIX}${subdomain}`;
         await redis.del(key);
-        console.log(`[Redis] Invalidated subdomain cache: ${subdomain}`);
+        // console.log(`[Redis] Invalidated subdomain cache: ${subdomain}`);
     } catch (error) {
         console.error(`[Redis] Error invalidating subdomain ${subdomain}:`, error);
     }

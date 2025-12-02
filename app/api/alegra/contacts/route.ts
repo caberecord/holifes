@@ -74,7 +74,7 @@ export async function POST(req: Request) {
                         alegraId: String(data.id),
                         updatedAt: serverTimestamp()
                     });
-                    console.log(`Synced Alegra ID ${data.id} to local contact ${localContactId}`);
+                    // console.log(`Synced Alegra ID ${data.id} to local contact ${localContactId}`);
                 } catch (firestoreError) {
                     console.error("Error syncing Alegra ID to Firestore:", firestoreError);
                     // Don't fail the request, just log the error
@@ -133,7 +133,7 @@ export async function PUT(req: Request) {
                         alegraId: String(data.id),
                         updatedAt: serverTimestamp()
                     });
-                    console.log(`Synced Alegra ID ${data.id} to local contact ${localContactId}`);
+                    // console.log(`Synced Alegra ID ${data.id} to local contact ${localContactId}`);
                 } catch (firestoreError) {
                     console.error("Error syncing Alegra ID to Firestore:", firestoreError);
                 }

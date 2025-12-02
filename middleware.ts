@@ -67,7 +67,7 @@ export default async function middleware(req: NextRequest) {
         // Validar formato
         const subdomainRegex = /^[a-z0-9-]+$/;
         if (!subdomainRegex.test(subdomain)) {
-            console.log(`[Middleware] Invalid subdomain format: ${subdomain}`);
+            // console.log(`[Middleware] Invalid subdomain format: ${subdomain}`);
             // return NextResponse.next(); 
         }
 
@@ -75,7 +75,7 @@ export default async function middleware(req: NextRequest) {
         // Nota: Por ahora NO aplicamos i18n automático a los sitios generados para evitar conflictos de ruta
         // Si se requiere i18n en sitios, se deberá manejar dentro de /sites/[subdomain]
         const rewritePath = `/sites/${subdomain}${pathname}`;
-        console.log(`[Middleware] Rewriting Subdomain: ${hostname}${pathname} → ${rewritePath}`);
+        // console.log(`[Middleware] Rewriting Subdomain: ${hostname}${pathname} → ${rewritePath}`);
         return NextResponse.rewrite(new URL(rewritePath, req.url));
     }
 

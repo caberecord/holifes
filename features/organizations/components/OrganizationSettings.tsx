@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { Loader2, Save } from "lucide-react";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
+import { Loader2, Save, Upload, X } from "lucide-react";
 import CustomPhoneInput from "@/components/ui/PhoneInput";
 
 const LATAM_COUNTRIES = [
@@ -75,17 +76,43 @@ export const OrganizationSettings = () => {
     }, [currentOrganization]);
 
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        // ... (Logic similar to CompanyTab but saving to Organization storage path)
-        // For MVP, we can reuse the same storage logic but maybe organize by orgId
-        // keeping it simple for now, just updating state
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file || !currentOrganization) return;
 
-        // TODO: Implement actual upload to 'organizations/{orgId}/logo'
-        // For now, we'll skip the actual upload implementation to focus on the form structure
-        // unless the user explicitly asks for the upload to work right now.
-        // Wait, I should implement it if I'm replacing the feature.
-        // I'll add a placeholder or reuse the existing logic if I can import storage.
+        // Validate file type and size
+        if (!file.type.startsWith('image/')) {
+            setMessage({ type: 'error', text: 'Solo se permiten archivos de imagen.' });
+            return;
+        }
+
+        if (file.size > 2 * 1024 * 1024) { // 2MB limit
+            setMessage({ type: 'error', text: 'La imagen no debe superar los 2MB.' });
+            return;
+        }
+
+        setIsUploadingLogo(true);
+        setMessage({ type: '', text: '' });
+
+        try {
+            const timestamp = Date.now();
+            const filename = `organizations/${currentOrganization.id}/logo_${timestamp}_${file.name}`;
+            const storageRef = ref(storage, filename);
+
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+
+            setFormData(prev => ({ ...prev, logoUrl: downloadURL }));
+            setMessage({ type: 'success', text: 'Logo subido correctamente. No olvides guardar los cambios.' });
+        } catch (error) {
+            console.error("Error uploading logo:", error);
+            setMessage({ type: 'error', text: 'Error al subir el logo.' });
+        } finally {
+            setIsUploadingLogo(false);
+        }
+    };
+
+    const handleRemoveLogo = () => {
+        setFormData(prev => ({ ...prev, logoUrl: "" }));
     };
 
     const handleSave = async (e: React.FormEvent) => {
@@ -147,26 +174,74 @@ export const OrganizationSettings = () => {
                 {/* 1. General Info */}
                 <div className="bg-white p-6 border border-gray-200 rounded-xl space-y-6">
                     <h3 className="text-md font-semibold text-gray-900 border-b pb-2">Información General</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Nombre de la Organización / Razón Social</label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                placeholder="Ej: Eventos SAS"
-                            />
-                            <p className="text-xs text-gray-500">Se utilizará para la facturación y visualización.</p>
+
+                    {/* Logo Upload */}
+                    <div className="flex flex-col md:flex-row gap-6 items-start">
+                        <div className="w-full md:w-1/3">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Logo de la Organización</label>
+                            <div className="relative group">
+                                {formData.logoUrl ? (
+                                    <div className="relative w-full aspect-video bg-gray-50 rounded-lg border border-gray-200 overflow-hidden flex items-center justify-center">
+                                        <img
+                                            src={formData.logoUrl}
+                                            alt="Organization Logo"
+                                            className="max-w-full max-h-full object-contain"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveLogo}
+                                            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                            title="Eliminar logo"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <label className={`flex flex-col items-center justify-center w-full aspect-video border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                            {isUploadingLogo ? (
+                                                <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
+                                            ) : (
+                                                <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                                            )}
+                                            <p className="text-xs text-gray-500">
+                                                {isUploadingLogo ? 'Subiendo...' : 'Click para subir logo'}
+                                            </p>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleLogoUpload}
+                                            disabled={isUploadingLogo}
+                                        />
+                                    </label>
+                                )}
+                                <p className="text-xs text-gray-500 mt-1">Recomendado: PNG o JPG, máx 2MB.</p>
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Slug (URL)</label>
-                            <input
-                                type="text"
-                                value={formData.slug}
-                                disabled
-                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed"
-                            />
+
+                        <div className="w-full md:w-2/3 grid grid-cols-1 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">Nombre de la Organización / Razón Social</label>
+                                <input
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    placeholder="Ej: Eventos SAS"
+                                />
+                                <p className="text-xs text-gray-500">Se utilizará para la facturación y visualización.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700">Slug (URL)</label>
+                                <input
+                                    type="text"
+                                    value={formData.slug}
+                                    disabled
+                                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed"
+                                />
+                            </div>
                         </div>
                     </div>
                 </div>

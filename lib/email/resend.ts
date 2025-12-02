@@ -8,12 +8,12 @@ export function getResendClient() {
     const apiKey = process.env.RESEND_API_KEY || process.env.NEXT_PUBLIC_RESEND_API_KEY;
 
     // Debug logging
-    console.log('🔍 Environment check:');
-    console.log('  - Server API Key exists:', !!process.env.RESEND_API_KEY);
-    console.log('  - Public API Key exists:', !!process.env.NEXT_PUBLIC_RESEND_API_KEY);
-    console.log('  - Using API Key exists:', !!apiKey);
-    console.log('  - API Key length:', apiKey?.length || 0);
-    console.log('  - First 10 chars:', apiKey?.substring(0, 10) || 'undefined');
+    // console.log('🔍 Environment check:');
+    // console.log('  - Server API Key exists:', !!process.env.RESEND_API_KEY);
+    // console.log('  - Public API Key exists:', !!process.env.NEXT_PUBLIC_RESEND_API_KEY);
+    // console.log('  - Using API Key exists:', !!apiKey);
+    // console.log('  - API Key length:', apiKey?.length || 0);
+    // console.log('  - First 10 chars:', apiKey?.substring(0, 10) || 'undefined');
 
     if (!apiKey) {
         console.error('❌ No RESEND API KEY found!');
@@ -21,7 +21,7 @@ export function getResendClient() {
         throw new Error('RESEND_API_KEY is not defined in environment variables');
     }
 
-    console.log('✅ Creating Resend client...');
+    // console.log('✅ Creating Resend client...');
     return new Resend(apiKey);
 }
 

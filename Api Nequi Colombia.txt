@@ -1,0 +1,342 @@
+﻿Aquí tienes el informe técnico detallado para la integración de Nequi (API Conecta).
+Esta integración difiere de las pasarelas tradicionales (como Stripe) porque es asíncrona y basada en Notificaciones Push: no se capturan datos de tarjeta, se solicita un pago a un número de celular y se espera la aprobación del usuario en su App.
+________________
+Informe Técnico: Integración Nequi Conecta (Pagos Push)
+1. Visión General de la Arquitectura
+La integración utiliza el modelo "Solicitud de Pago a No Inscrito" (Unregistered Payment). El flujo técnico es:
+1. Autenticación: El servidor (Next.js) obtiene un token OAuth2 (Client Credentials).
+2. Solicitud: El servidor envía una petición de pago al número celular del usuario.
+3. Interacción: El usuario recibe una notificación Push en su App Nequi y acepta/rechaza.
+4. Confirmación: El servidor debe consultar (Polling) el estado del pago hasta obtener un resultado final.
+2. Definición de Tipos (TypeScript Interfaces)
+Nequi utiliza una estructura de "Sobre" (Envelope) muy específica que envuelve todas las peticiones y respuestas. Definiremos esto primero para asegurar el tipado estricto.
+
+
+TypeScript
+
+
+
+
+// /lib/nequi/types.ts
+
+// Estructura Base del Header Nequi [cite: 207]
+export interface NequiHeader {
+ Channel: string;          // Ej: 'PNP04-C001'
+ MessageID: string;        // UUID único por transacción
+ ClientID: string;         // Identificador de tu app
+ Destination: {
+   ServiceName: string;    // Ej: 'PaymentsService'
+   ServiceOperation: string; // Ej: 'unregisteredPayment'
+   ServiceRegion: string;  // Ej: 'C001'
+   ServiceVersion: string; // Ej: '1.2.0'
+ };
+ ResponseDate?: string;
+ Status?: {
+   StatusCode: string;
+   StatusDesc: string;
+ };
+}
+
+// Estructura Genérica del Request/Response [cite: 207]
+export interface NequiEnvelope<T> {
+ ResponseMessage: {
+   ResponseHeader: NequiHeader;
+   ResponseBody: {
+     any: T;
+   };
+ };
+}
+
+// Payload para Crear Pago (UnregisteredPayment)
+export interface CreatePaymentRequest {
+ unregisteredPaymentRQ: {
+   phoneNumber: string;
+   code: string;       // Código de país, ej: "57"
+   value: string;      // Monto sin decimales ni separadores
+   reference1: string; // Tu ID de orden interno
+   reference2?: string;
+   reference3?: string;
+ };
+}
+
+// Respuesta de Creación [cite: 207]
+export interface CreatePaymentResponse {
+ unregisteredPaymentRS: {
+   transactionId: string; // Guardar esto para consultar estado
+ };
+}
+
+// Respuesta de Consulta de Estado [cite: 301]
+export interface StatusPaymentResponse {
+ getStatusPaymentRS: {
+   status: string; // "33"=Pendiente, "35"=Exitoso, "36"=Cancelado
+   date: string;
+   value: string;
+   originMoney?: Array<{
+     name: string;
+     value: string;
+   }>;
+ };
+}
+
+________________
+3. Servicio de Autenticación (OAuth2)
+El token se obtiene mediante client_credentials enviando el client_id y client_secret codificados en Base64 en el header Authorization1.
+
+
+Nota de Seguridad: Este token expira (usualmente 1 hora). Se debe implementar un caché simple en memoria o Redis para no pedir token en cada solicitud.
+
+
+TypeScript
+
+
+
+
+// /lib/nequi/auth.ts
+import axios from 'axios';
+
+const NEQUI_AUTH_URL = process.env.NEQUI_AUTH_URL || 'https://oauth2.nequi.com/oauth2/token'; // Validar URL real
+const CLIENT_ID = process.env.NEQUI_CLIENT_ID!;
+const CLIENT_SECRET = process.env.NEQUI_CLIENT_SECRET!;
+
+let cachedToken: string | null = null;
+let tokenExpiry: number = 0;
+
+export async function getNequiToken(): Promise<string> {
+ const now = Date.now();
+ 
+ // Retornar caché si es válido (con margen de 2 minutos)
+ if (cachedToken && now < tokenExpiry - 120000) {
+   return cachedToken;
+ }
+
+ const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
+
+ try {
+   const response = await axios.post(
+     NEQUI_AUTH_URL,
+     'grant_type=client_credentials', // x-www-form-urlencoded [cite: 464]
+     {
+       headers: {
+         'Content-Type': 'application/x-www-form-urlencoded',
+         'Authorization': `Basic ${credentials}` // 
+       }
+     }
+   );
+
+   const { access_token, expires_in } = response.data;
+   
+   cachedToken = access_token;
+   tokenExpiry = now + (parseInt(expires_in) * 1000);
+   
+   return access_token;
+ } catch (error) {
+   console.error('Error obteniendo token Nequi:', error);
+   throw new Error('Fallo autenticación Nequi');
+ }
+}
+
+________________
+4. Implementación del Core (Operaciones)
+Este servicio encapsula la lógica de construcción del "Envelope" y el manejo de llamadas.
+
+
+TypeScript
+
+
+
+
+// /lib/nequi/service.ts
+import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
+import { getNequiToken } from './auth';
+import { NequiEnvelope, CreatePaymentResponse, StatusPaymentResponse } from './types';
+
+const NEQUI_API_BASE = process.env.NEQUI_API_URL; // Ej: https://api.nequi.com/payments/v2
+const API_KEY = process.env.NEQUI_API_KEY!; // API Key provista por Nequi [cite: 221]
+
+export class NequiService {
+
+ /**
+  * Helper para construir el sobre JSON estándar de Nequi
+  */
+ private buildEnvelope<T>(serviceName: string, operation: string, body: T): NequiEnvelope<T> {
+   return {
+     ResponseMessage: {
+       ResponseHeader: {
+         Channel: 'PNP04-C001', // Canal asignado por Nequi
+         MessageID: uuidv4(),   // ID único obligatorio
+         ClientID: process.env.NEQUI_CLIENT_ID!,
+         Destination: {
+           ServiceName: serviceName,
+           ServiceOperation: operation,
+           ServiceRegion: 'C001',
+           ServiceVersion: '1.2.0'
+         }
+       },
+       ResponseBody: {
+         any: body
+       }
+     }
+   };
+ }
+
+ /**
+  * Helper para realizar la petición HTTP
+  */
+ private async callNequiAPI(endpoint: string, payload: any) {
+   const token = await getNequiToken();
+   
+   try {
+     const response = await axios.post(`${NEQUI_API_BASE}${endpoint}`, payload, {
+       headers: {
+         'Content-Type': 'application/json',
+         'Accept': 'application/json',
+         'Authorization': `Bearer ${token}`, // [cite: 231]
+         'x-api-key': API_KEY               // [cite: 221]
+       }
+     });
+     return response.data;
+   } catch (error) {
+     // Manejo de errores específicos
+     throw error;
+   }
+ }
+
+ /**
+  * 1. ENVIAR NOTIFICACIÓN PUSH (Cobro)
+  * Endpoint: /-services-paymentservice-unregisteredpayment [cite: 207]
+  */
+ async createPushPayment(phone: string, amount: number, orderId: string) {
+   const payload = this.buildEnvelope('PaymentsService', 'unregisteredPayment', {
+     unregisteredPaymentRQ: {
+       phoneNumber: phone,
+       code: "57", // Colombia
+       value: amount.toString(), // Sin decimales [cite: 301]
+       reference1: orderId,
+       reference2: "Tienda SaaS",
+       reference3: "Evento XYZ"
+     }
+   });
+
+   const data = await this.callNequiAPI('/-services-paymentservice-unregisteredpayment', payload);
+   
+   // Validar respuesta de negocio
+   const status = data.ResponseMessage.ResponseHeader.Status;
+   if (status.StatusCode !== '0') {
+     throw new Error(`Error Nequi: ${status.StatusDesc}`);
+   }
+
+   return data.ResponseMessage.ResponseBody.any.unregisteredPaymentRS as { transactionId: string };
+ }
+
+ /**
+  * 2. CONSULTAR ESTADO (Polling)
+  * Endpoint: /-services-paymentservice-getstatuspayment [cite: 301]
+  */
+ async checkPaymentStatus(transactionId: string) {
+   const payload = this.buildEnvelope('PaymentsService', 'getStatusPayment', {
+     getStatusPaymentRQ: {
+       codeQR: transactionId // En pagos push, el ID viaja aquí según documentación técnica
+     }
+   });
+
+   const data = await this.callNequiAPI('/-services-paymentservice-getstatuspayment', payload);
+   const result = data.ResponseMessage.ResponseBody.any.getStatusPaymentRS;
+   
+   // Mapeo de estados [cite: 301]
+   const statusMap: Record<string, string> = {
+     '33': 'PENDING',
+     '35': 'COMPLETED', // Realizado
+     '10-455': 'REJECTED', // Cancelado o Rechazado
+     '10-454': 'EXPIRED',  // Caducada
+     '71': 'FAILED'
+   };
+
+   return {
+     status: statusMap[result.status] || 'UNKNOWN',
+     rawStatus: result.status,
+     amount: result.value,
+     date: result.date
+   };
+ }
+
+ /**
+  * 3. CANCELAR PAGO
+  * Endpoint: /-services-paymentservice-cancelunregisteredpayment [cite: 239]
+  */
+ async cancelPayment(transactionId: string) {
+   const payload = this.buildEnvelope('PaymentsService', 'cancelUnregisteredPayment', {
+     cancelUnregisteredPaymentRQ: {
+       transactionId: transactionId
+     }
+   });
+
+   return await this.callNequiAPI('/-services-paymentservice-cancelunregisteredpayment', payload);
+ }
+
+ /**
+  * 4. REVERSAR PAGO
+  * Endpoint: /-services-reverseservices-reversetransaction [cite: 348]
+  * Útil cuando el status queda indeterminado (timeout)
+  */
+ async reversePayment(transactionId: string, amount: number) {
+   const payload = this.buildEnvelope('ReverseServices', 'reverseTransaction', {
+     reversionRQ: {
+       value: amount.toString(),
+       code: "57",
+       messageId: transactionId // ID original
+     }
+   });
+
+   return await this.callNequiAPI('/-services-reverseservices-reversetransaction', payload);
+ }
+}
+
+________________
+5. Manejo de Errores (Error Mapping)
+Es vital traducir los códigos crípticos de Nequi a mensajes útiles para el usuario final en tu frontend.
+
+
+TypeScript
+
+
+
+
+// /lib/nequi/errors.ts
+
+export function getNequiErrorMessage(code: string): string {
+ // Tabla de Errores
+ switch (code) {
+   case '2-CCSB000012':
+   case '2-CCSB000013':
+     return 'Tu cuenta Nequi se encuentra bloqueada. Contacta a soporte Nequi.';
+   
+   case '3-451':
+   case '11-37L':
+     return 'El número de celular no tiene una cuenta Nequi activa.';
+     
+   case '10-454':
+     return 'La solicitud de pago ha expirado. Intenta de nuevo.';
+     
+   case '10-455':
+     return 'El pago fue rechazado por el usuario.';
+     
+   case '20-09A':
+     return 'Fondos insuficientes en la cuenta Nequi.'; // Interpretación común
+     
+   default:
+     return 'Ocurrió un error procesando el pago con Nequi.';
+ }
+}
+
+6. Recomendaciones de Implementación en Next.js
+1. No bloquear el Frontend:
+Cuando llames a createPushPayment, devuelve inmediatamente el transactionId al frontend.
+2. Polling Inteligente:
+En el frontend, usa un hook (como useQuery de TanStack Query) o un setInterval para llamar a tu endpoint /api/payments/status cada 3 segundos.
+   * Detener si el estado es COMPLETED o REJECTED.
+   * Detener (Timeout) después de 45 segundos (Nequi suele expirar a los 45-60s).
+   3. Endpoint de Reportes:
+El endpoint /services-reportsservice-getreports 2 es pesado. No lo uses en tiempo real. Configura un Cron Job nocturno en Vercel/Firebase Functions para descargar transacciones y conciliar con tu base de datos.
+Este código proporciona una implementación robusta, tipada y modular lista para integrarse en tu arquitectura multi-tenant.

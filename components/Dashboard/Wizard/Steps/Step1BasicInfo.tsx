@@ -8,19 +8,9 @@ import { Calendar, Clock, MapPin, Type, AlignLeft, Link as LinkIcon, Tag, Map, U
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-const schema = z.object({
-    name: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-    date: z.string().min(1, "La fecha es requerida"),
-    startTime: z.string().min(1, "La hora de inicio es requerida"),
-    endTime: z.string().min(1, "La hora de fin es requerida"),
-    location: z.string().min(3, "La ciudad/ubicación es requerida"),
-    address: z.string().min(5, "La dirección exacta es requerida"),
-    googleMapsUrl: z.string().optional(),
-    category: z.string().min(1, "Selecciona una categoría"),
-    description: z.string().max(500, "Máximo 500 caracteres"),
-});
+import { EventBasicInfoSchema, EventBasicInfo } from "@/lib/schemas/eventSchema";
 
-type FormData = z.infer<typeof schema>;
+type FormData = EventBasicInfo;
 
 export default function Step1BasicInfo() {
     const { basicInfo, updateBasicInfo, setStep } = useEventWizardStore();
@@ -32,7 +22,7 @@ export default function Step1BasicInfo() {
         handleSubmit,
         formState: { errors },
     } = useForm<FormData>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(EventBasicInfoSchema),
         defaultValues: basicInfo,
     });
 

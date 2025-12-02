@@ -17,9 +17,9 @@ export default function TabAudit({ eventId }: TabAuditProps) {
     const fetchLogs = async () => {
         setLoading(true);
         try {
-            console.log('Fetching scan logs for event:', eventId);
+            // console.log('Fetching scan logs for event:', eventId);
             const data = await getEventScanLogs(eventId);
-            console.log('Scan logs fetched:', data.length, 'records');
+            // console.log('Scan logs fetched:', data.length, 'records');
             setLogs(data);
         } catch (error) {
             console.error('Error fetching scan logs:', error);

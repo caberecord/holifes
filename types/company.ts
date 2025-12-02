@@ -92,6 +92,7 @@ export interface CompanyData {
 
     // Integrations
     alegra?: AlegraConfig;
+    nequi?: NequiConfig;
 
     // Metadata
     createdAt: Date;
@@ -105,4 +106,13 @@ export interface AlegraConfig {
     isSandbox: boolean;
     bankAccountId?: number; // ID de la cuenta de banco en Alegra
     warehouseId?: number;   // ID de la bodega (opcional)
+}
+
+export interface NequiConfig {
+    clientId: string;
+    clientSecret: string;
+    apiKey: string;
+    authUrl: string;
+    apiUrl: string;
+    isConnected: boolean;
 }

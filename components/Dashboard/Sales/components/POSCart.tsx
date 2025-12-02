@@ -39,6 +39,8 @@ export const POSCart: React.FC<POSCartProps> = ({
             .map(g => `${g.Zone}:${g.Seat}`);
     };
 
+    type Zone = NonNullable<NonNullable<Event['venue']>['zones']>[number];
+
     return (
         <div className="flex flex-col h-full animate-slide-in">
             <div className="p-5 border-b border-gray-100 bg-gray-50">
@@ -46,7 +48,7 @@ export const POSCart: React.FC<POSCartProps> = ({
                 <p className="text-xs text-gray-500">Selecciona la cantidad por tipo</p>
             </div>
             <div className="flex-1 p-5 space-y-3 overflow-y-auto">
-                {(selectedEvent.venue?.zones || []).map((zone: any) => {
+                {(selectedEvent.venue?.zones || []).map((zone: Zone) => {
                     const quantity = cart[zone.name] || 0;
                     const isNumbered = zone.type === 'seating' || zone.type === 'numbered';
                     const zoneName = zone?.name || '';

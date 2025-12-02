@@ -1,6 +1,6 @@
 import { useVenueBuilderStore, ToolType } from "@/store/venueBuilderStore";
 import { MousePointer2, Square, Circle, Type, Grid3X3, Undo, Redo, Box, DoorOpen, Store, Footprints, Moon, Wifi, Flame, Download, Crop } from "lucide-react";
-import html2canvas from 'html2canvas';
+
 
 export default function Toolbox() {
     // @ts-ignore - history props are new
@@ -11,6 +11,7 @@ export default function Toolbox() {
         const stageContainer = document.querySelector('.konvajs-content');
         if (stageContainer) {
             try {
+                const html2canvas = (await import('html2canvas')).default;
                 const canvas = await html2canvas(stageContainer as HTMLElement);
                 const dataUrl = canvas.toDataURL('image/png');
                 const link = document.createElement('a');

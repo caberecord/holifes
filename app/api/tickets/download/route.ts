@@ -6,6 +6,11 @@ import { verifyAuth, unauthorizedResponse } from '@/lib/auth/api-auth';
 
 export async function POST(request: NextRequest) {
     try {
+        const user = await verifyAuth(request);
+        if (!user) {
+            return unauthorizedResponse();
+        }
+
         const body = await request.json();
         const { tickets } = body;
 
@@ -16,7 +21,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        console.log(`Generating batch PDF for ${tickets.length} tickets`);
+        // console.log(`Generating batch PDF for ${tickets.length} tickets`);
 
         const pdfBuffer = await generateBatchTicketPDF(tickets);
 

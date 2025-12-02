@@ -23,7 +23,7 @@ export const logEventAction = async (
             timestamp: serverTimestamp(),
             userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'server',
         });
-        console.log(`[Audit] Logged action: ${action} for event ${eventId}`);
+        // console.log(`[Audit] Logged action: ${action} for event ${eventId}`);
     } catch (error) {
         console.error("Error logging audit action:", error);
         // We don't throw here to avoid blocking the main action

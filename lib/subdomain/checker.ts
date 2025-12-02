@@ -33,7 +33,7 @@ export async function getEventIdBySubdomain(subdomain: string): Promise<string |
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) {
-            console.log(`[Subdomain] Not found: ${subdomain}`);
+            // console.log(`[Subdomain] Not found: ${subdomain}`);
             return null;
         }
 
@@ -42,7 +42,7 @@ export async function getEventIdBySubdomain(subdomain: string): Promise<string |
         // 3. Guardar en caché para futuros requests
         await setSubdomainCache(subdomain, eventId);
 
-        console.log(`[Subdomain] Found and cached: ${subdomain} → ${eventId}`);
+        // console.log(`[Subdomain] Found and cached: ${subdomain} → ${eventId}`);
         return eventId;
     } catch (error) {
         console.error(`[Subdomain] Error checking subdomain ${subdomain}:`, error);

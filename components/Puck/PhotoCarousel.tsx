@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import Image from 'next/image';
 
 interface CarouselImage {
     url: string;
@@ -168,13 +169,17 @@ export function PhotoCarousel({
                                         x: '-50%' // We'll let motion handle x offset
                                     }}
                                 >
-                                    <img
-                                        src={image.url}
-                                        alt={image.alt || `Slide ${index}`}
-                                        className="w-full h-full object-cover"
-                                    />
+                                    <div className="relative w-full h-full">
+                                        <Image
+                                            src={image.url}
+                                            alt={image.alt || `Slide ${index}`}
+                                            fill
+                                            className="object-cover"
+                                            sizes="(max-width: 768px) 300px, 500px"
+                                        />
+                                    </div>
                                     {image.alt && (
-                                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white text-center">
+                                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent text-white text-center z-10">
                                             <p className="text-lg font-medium">{image.alt}</p>
                                         </div>
                                     )}

@@ -1,0 +1,228 @@
+﻿Reporte Técnico Exhaustivo: Protocolos de Integración, Gobernanza y Acceso al Entorno de Pruebas (Sandbox) de la API de Nequi
+1. Introducción al Ecosistema de Integración Financiera y la Arquitectura de Nequi
+La evolución de los servicios financieros en Colombia ha trascendido la banca tradicional para adentrarse en un ecosistema digital dinámico, donde la interoperabilidad y la inmediatez son los pilares fundamentales. Nequi, como entidad neobancaria líder y brazo de innovación digital de Bancolombia, ha establecido un estándar en la industria a través de su plataforma de "Open Banking" o Banca Abierta. Este informe técnico tiene como objetivo desglosar, con un nivel de detalle granular, el proceso de solicitud, acceso y gestión del entorno de pruebas (Sandbox) de la API de Nequi. Este entorno no es simplemente una réplica funcional del sistema productivo; constituye un laboratorio controlado diseñado para validar la integridad transaccional, la seguridad de la información y la robustez de las integraciones de terceros antes de su exposición al mercado real.
+El acceso al Sandbox de Nequi es el primer hito crítico en el Ciclo de Vida de Desarrollo de Software (SDLC) para cualquier entidad que desee procesar pagos, realizar dispersiones o validar identidades a través de la plataforma. A diferencia de las integraciones heredadas que dependían de archivos planos o conexiones VPN complejas, Nequi expone sus servicios a través de APIs RESTful modernas, seguras y escalables. Sin embargo, la aparente simplicidad de la tecnología REST oculta una capa profunda de requisitos de cumplimiento, protocolos de seguridad (OAuth 2.0, mTLS) y validaciones de negocio que deben ser comprendidas y ejecutadas a la perfección durante la fase de solicitud y pruebas.
+Este documento está estructurado para guiar a arquitectos de software, líderes de producto y equipos de cumplimiento a través de las complejidades del ecosistema de Nequi Conecta. Se abordarán no solo los pasos mecánicos para obtener credenciales, sino también las implicaciones estratégicas de cada requisito, la arquitectura de seguridad subyacente y las mejores prácticas para una transición exitosa a producción.
+1.1 El Paradigma de Nequi Conecta y la Economía de las APIs
+Nequi Conecta es la plataforma centralizada de gestión de APIs (API Management) que actúa como la puerta de entrada para desarrolladores y aliados. En este contexto, la API de Nequi no es un producto monolítico, sino un conjunto de microservicios orquestados que permiten funcionalidades específicas: cobros, pagos, giros y validación de usuarios. El proceso de solicitud de acceso, por lo tanto, no es genérico; requiere que el solicitante entienda qué "Producto de API" necesita consumir.
+La arquitectura se basa en un modelo de exposición de servicios donde el Sandbox juega un papel de "Gemelo Digital". Esto implica que el comportamiento de la API en pruebas —tiempos de respuesta, estructura de los mensajes JSON, códigos de error HTTP— es isomórfico al de producción, con la única excepción de que no hay movimiento real de dinero. Entender esta paridad es crucial: los errores no detectados en la fase de solicitud y pruebas se traducirán directamente en pérdidas financieras o daños reputacionales en el entorno productivo.
+________________
+2. Requisitos Previos: Marco Legal, Administrativo y Técnico
+Antes de iniciar cualquier interacción con el portal de desarrolladores, las organizaciones deben someterse a un proceso de preparación interna. La solicitud de acceso al entorno de pruebas de Nequi, aunque automatizada en sus fases iniciales, está gobernada por estrictas políticas de "Conozca a su Negocio" (KYB - Know Your Business) y requisitos técnicos de infraestructura.
+2.1 Requisitos Legales y de Cumplimiento Corporativo
+El sistema financiero colombiano opera bajo una rigurosa vigilancia de la Superintendencia Financiera. Nequi, al habilitar a terceros para interactuar con cuentas bancarias, extiende ciertas responsabilidades de cumplimiento a sus aliados. Por ello, la solicitud de acceso requiere una validación de identidad corporativa robusta.
+2.1.1 Constitución y Representación Legal
+Para acceder a los servicios empresariales de la API (excluyendo a desarrolladores individuales que solo experimentan), la entidad debe ser una Persona Jurídica legalmente constituida en Colombia.
+* Certificado de Cámara de Comercio: Se exige un certificado de existencia y representación legal con una vigencia no superior a 30 días al momento de la firma del contrato (aunque para el Sandbox el requisito puede ser más laxo, se recomienda tenerlo listo). Este documento valida que la empresa existe y que quien solicita el acceso tiene la facultad para comprometer a la organización.
+* Objeto Social Permitido: Nequi realiza un filtrado de actividades económicas. Empresas dedicadas a juegos de azar no regulados, criptoactivos no sancionados por el sandbox regulatorio de la Superfinanciera, o actividades de alto riesgo, pueden ver denegada su solicitud de acceso incluso en la etapa de pruebas.
+2.1.2 Registro Único Tributario (RUT)
+El RUT es fundamental para la configuración de la facturación de las comisiones de la API. Aunque en el Sandbox no se generan cobros reales, el sistema de registro de Nequi suele validar la estructura del NIT (Número de Identificación Tributaria) para asegurar que la cuenta creada corresponde a un contribuyente válido. Es imperativo que el código CIIU (Clasificación Industrial Internacional Uniforme) en el RUT coincida con la actividad económica declarada.
+2.1.3 Vinculación Bancaria
+Un requisito a menudo subestimado es la necesidad de tener una cuenta receptora de fondos.
+* Cuenta Nequi o Bancolombia: Para la funcionalidad de "Cash-in" (recibir dinero de usuarios), la empresa generalmente debe tener una cuenta Nequi tipo "Negocios" o una cuenta de ahorros/corriente en Bancolombia vinculada al servicio.
+* Validación en Sandbox: En el entorno de pruebas, no se requiere una cuenta real activa con fondos, pero el proceso de registro puede solicitar el número de cuenta que se planea usar en producción para configurar los simuladores de dispersión de fondos.
+2.2 Requisitos Técnicos de Infraestructura
+La solicitud de acceso no es solo un trámite documental; es una validación de capacidad técnica. Nequi espera que el aliado posea una infraestructura capaz de soportar una comunicación segura y estable.
+2.2.1 Seguridad en la Capa de Transporte (TLS)
+El requisito técnico más innegociable es el uso de cifrado en tránsito.
+* Protocolo: Se exige TLS 1.2 como mínimo, con una fuerte preferencia hacia TLS 1.3.
+* Certificados: El servidor del aliado (donde se alojará el software que consume la API) debe tener un certificado SSL válido emitido por una Autoridad Certificadora (CA) reconocida pública. Los certificados autofirmados (Self-signed) son rechazados por el Gateway de Nequi en producción y, a menudo, generan problemas en Sandbox si se prueban webhooks.
+2.2.2 Direccionamiento IP y Arquitectura de Red
+* IPs Estáticas: Para el entorno de producción, Nequi suele implementar listas blancas (whitelisting) de direcciones IP. Es una práctica recomendada que el solicitante aprovisione IPs estáticas (Elastic IPs en AWS, por ejemplo) desde la fase de Sandbox para replicar la configuración de red final.
+* Exposición de Endpoints: El aliado debe tener la capacidad de exponer endpoints públicos (URLs accesibles desde internet) para recibir las notificaciones asíncronas (Webhooks) de Nequi. En entornos de desarrollo local, esto implica el uso de herramientas de túneles seguros como ngrok o despliegues en entornos de nube (dev/staging).
+Componente de Requisito
+	Descripción Detallada
+	Impacto en la Solicitud
+	Identidad Jurídica
+	NIT, RUT, Cámara de Comercio.
+	Bloqueante. Sin esto, no se puede firmar el contrato de producción.
+	Infraestructura
+	Servidores con soporte TLS 1.2+.
+	Técnico. Impide la comunicación si no se cumple.
+	Cuenta Bancaria
+	Cuenta receptora de fondos.
+	Operativo. Define dónde termina el dinero recaudado.
+	Capacidad de Desarrollo
+	Conocimiento en REST, JSON, OAuth.
+	Competencia. Determina la velocidad de integración.
+	________________
+3. El Portal "Nequi Conecta": Proceso Detallado de Registro y Solicitud
+La plataforma Nequi Conecta es el entorno de autoservicio donde ocurre la magia administrativa y técnica. El proceso de solicitud de acceso al Sandbox se ha diseñado para ser lo más autónomo posible, reduciendo la fricción humana en las etapas iniciales. A continuación, se detalla el flujo procedimental paso a paso.
+3.1 Fase 1: Creación de la Identidad Digital del Desarrollador
+El primer paso es establecer una identidad en el ecosistema de Nequi.
+1. Acceso al Portal: El usuario debe navegar al sitio oficial de negocios de Nequi (negocios.nequi.com o el subdominio específico de desarrolladores).
+2. Registro de Usuario: Se debe completar un formulario que solicita:
+   * Nombre y Apellido: Del encargado técnico o administrativo.
+   * Correo Corporativo: Punto Crítico. El uso de correos genéricos (@gmail.com, @hotmail.com) suele activar banderas de revisión manual o limitaciones en el acceso. Se recomienda estrictamente usar el dominio de la empresa (ej. ingenieria@miempresa.com).
+   * Contraseña Robusta: Cumpliendo políticas de complejidad (mayúsculas, caracteres especiales, longitud mínima).
+3. Verificación de Cuenta: Un correo de activación es enviado. Al hacer clic, la cuenta queda habilitada para acceder al Dashboard general.
+3.2 Fase 2: Definición de la Aplicación (App)
+En la terminología de Nequi (y de la mayoría de gestores de API como Apigee o AWS API Gateway), el acceso no se otorga a una "persona", sino a una "Aplicación". Una empresa puede tener múltiples aplicaciones (ej. "App Móvil Clientes", "Sistema POS Tiendas Físicas", "Web E-commerce").
+1. Creación de Nueva App: Dentro del Dashboard, se selecciona la opción "Mis Apps" > "Crear Nueva Aplicación".
+2. Metadatos de la Aplicación:
+   * Nombre: Debe ser descriptivo y único dentro de la cuenta.
+   * Descripción: Una explicación breve del caso de uso. Esto es importante porque los administradores de Nequi pueden auditar las apps creadas. Una descripción como "Pruebas de integración para pasarela de pagos del comercio X" es adecuada.
+3. Selección de Productos de API: Aquí el solicitante define el alcance de su acceso. Nequi agrupa sus endpoints en "Productos".
+   * Nequi Payments (Cobros): Para generar solicitudes de pago (Push, QR).
+   * Nequi Disbursements (Giros): Para enviar dinero a usuarios (nómina, premios).
+   * Nequi Auth: Obligatorio para la gestión de tokens.
+   * Selección en Sandbox: Al momento de crear la app, se debe asegurar que se está operando en el entorno "Sandbox" (generalmente indicado por un switch o pestaña en la UI).
+3.3 Fase 3: Obtención de Credenciales (Keys & Secrets)
+Una vez creada la aplicación y asociados los productos, el sistema genera los "secretos" que permitirán el acceso técnico.
+1. Client ID (Identificador de Cliente): Es una cadena pública que identifica a la aplicación. Se puede compartir (con precaución) en logs de soporte.
+2. Client Secret (Secreto de Cliente): El activo más crítico. Es la llave privada criptográfica que sirve para firmar las peticiones de token. Este valor solo se muestra una vez o se debe copiar inmediatamente. Si se pierde, se debe regenerar, lo que implica detener el servicio hasta actualizar la nueva clave.
+3. API Key (Llave de API): Una capa adicional de seguridad utilizada por el API Gateway para identificar el plan de uso y aplicar límites de tasa (Rate Limiting). Esta llave viaja en el header x-api-key.
+3.4 Fase 4: Configuración de Callbacks (Webhooks)
+Para completar la solicitud técnica, el desarrollador debe decirla a Nequi "dónde buscarlo".
+* Registro de URLs: En la configuración de la App, se deben ingresar las URLs de los servidores del comercio donde Nequi enviará las notificaciones de estado (ej. https://api-dev.miempresa.com/v1/nequi/webhook).
+* Validación de Dominio: En algunos niveles de integración, Nequi puede requerir verificar que el solicitante es dueño del dominio apuntado.
+________________
+4. Arquitectura de Seguridad y Autenticación: El Corazón del Acceso
+Tener las credenciales no es tener acceso; es tener la llave. El acceso real se consigue implementando correctamente el protocolo de autenticación. Nequi utiliza OAuth 2.0, el estándar de industria para autorización segura. Comprender este flujo es un requisito sine qua non para utilizar el entorno de pruebas.
+4.1 El Flujo de Credenciales de Cliente (Client Credentials Grant)
+Para interacciones servidor-a-servidor (backend del comercio hablando con backend de Nequi), se utiliza el "grant type" de client_credentials. Este flujo no requiere interacción humana del usuario final de Nequi para obtener el token, ya que la "aplicación" actúa en su propio nombre.
+4.1.1 Secuencia de Autenticación
+1. Construcción de la Petición: El servidor del comercio envía una petición POST al endpoint de autenticación (/oauth2/token).
+2. Encabezados:
+   * Authorization: Basic Auth. Se concatena ClientID:ClientSecret y se codifica en Base64. El resultado se envía como Basic <Base64String>.
+   * Content-Type: application/x-www-form-urlencoded.
+3. Cuerpo (Body):
+   * grant_type: client_credentials.
+4. Respuesta (Token): Nequi valida las credenciales y devuelve un JSON conteniendo:
+   * access_token: Un JWT (JSON Web Token) o una cadena opaca que representa la sesión autorizada.
+   * expires_in: Tiempo de vida del token en segundos (usualmente 3600 segundos = 1 hora).
+   * token_type: Bearer.
+4.2 Gestión del Ciclo de Vida del Token
+Un error común en las solicitudes de acceso y primeras integraciones es el mal manejo del token.
+* No solicitar un token por cada transacción: Esto es ineficiente y puede llevar a que Nequi bloquee la IP por exceso de peticiones (Rate Limiting).
+* Reutilización y Renovación: El sistema del comercio debe almacenar el token en memoria caché y reutilizarlo para todas las llamadas a la API hasta que esté próximo a expirar.
+* Mecanismo de Refresco: Se debe implementar una lógica que detecte el error 401 Unauthorized o verifique el tiempo de expiración para solicitar un nuevo token automáticamente.
+4.3 Seguridad de Capa de Aplicación (API Key)
+Además del token Bearer (que autoriza quién eres y qué puedes hacer), Nequi exige el envío de la x-api-key en cada petición. Esta llave ayuda a Nequi a enrutar la petición al plan de servicio correcto dentro de su infraestructura de AWS API Gateway.
+* Ubicación: Header x-api-key.
+* Persistencia: A diferencia del token, esta llave es estática y rota con mucha menos frecuencia (generalmente manual).
+4.4 Autenticación Mutua (mTLS) y Firma de Mensajes
+Para integraciones corporativas de alto nivel o transacciones sensibles, el acceso al Sandbox puede requerir configuraciones avanzadas que van más allá del estándar OAuth básico.
+* mTLS (Mutual TLS): En este esquema, el servidor de Nequi valida el certificado del cliente durante el handshake SSL. Esto asegura que la petición proviene físicamente del servidor autorizado y no de un atacante que robó las credenciales.
+* Firma Digital (Message Signing): Nequi puede exigir que el cuerpo del mensaje (JSON payload) sea firmado digitalmente. Esto implica:
+   1. Generar un hash del body (SHA-256).
+   2. Cifrar el hash con la llave privada del cliente.
+   3. Enviar la firma en un header personalizado (ej. x-signature).
+   4. Nequi descifra el hash con la llave pública registrada en el portal y verifica que coincida con el hash del body recibido, garantizando integridad (nadie modificó el mensaje en el camino) y no repudio.
+________________
+5. El Entorno de Pruebas (Sandbox): Capacidades y Limitaciones
+Una vez superada la barrera de entrada administrativa y de autenticación, el desarrollador se encuentra en el Sandbox. Es vital entender que este es un entorno de simulación con reglas físicas propias.
+5.1 Anatomía del Sandbox
+El Sandbox de Nequi reside en una infraestructura aislada de la producción.
+* Datos Ficticios: Ningún número de celular real de Nequi existe en Sandbox. Se utilizan rangos reservados (ej. 3xxxxxxxxx) o números creados específicamente a través de endpoints de "generación de usuarios de prueba".
+* Dinero Virtual: Las transacciones mueven saldos simulados. No hay conexión con la red bancaria real (ACH, Redeban, Credibanco) más allá de la simulación de respuestas.
+* Latencia y Disponibilidad: El Sandbox puede tener ventanas de mantenimiento más frecuentes que producción y no siempre garantiza los mismos SLAs (Acuerdos de Nivel de Servicio).
+5.2 Herramientas de Simulación
+Dado que en Sandbox no hay un usuario real con un celular aceptando pagos, Nequi provee mecanismos para simular la interacción humana.
+* Consola de Pruebas: Dentro de Nequi Conecta, suele haber herramientas para disparar eventos. Por ejemplo, si se envía una solicitud de pago Push a un número de prueba, el desarrollador puede ir a la consola y hacer clic en "Aceptar Pago" o "Rechazar Pago" para ese número, disparando así el flujo de respuesta hacia su propio servidor.
+* Endpoints de Simulación: Alternativamente, existen APIs específicas del entorno de pruebas que permiten aprobar transacciones programáticamente (ej. POST /qa/approve-transaction).
+5.3 Datos de Prueba y "Whitelisting"
+Para evitar el abuso del Sandbox, Nequi impone restricciones sobre qué datos se pueden usar.
+* Números Permitidos: Solo se pueden usar los números de celular registrados como "Test Users" en la cuenta del desarrollador. Intentar enviar un cobro a un número aleatorio resultará en un error User Not Found.
+* Monto de las Transacciones: A veces se usan los montos para disparar comportamientos específicos. Por ejemplo, una transacción de $1.00 puede ser exitosa, mientras que una de $2.00 simula "Fondos Insuficientes" y una de $3.00 simula "Timeout". Este patrón de "Magic Numbers" es común en sandboxes financieros.
+________________
+6. Escenarios de Integración y Metodologías de Prueba
+La solicitud de acceso se realiza con un propósito de negocio específico. Nequi soporta varios modelos de integración, cada uno con sus propios flujos de prueba.
+6.1 Modelo 1: Notificación Push (Solicitud de Pago)
+Este es el caso de uso más frecuente para e-commerce.
+* Flujo:
+   1. Usuario ingresa celular en el checkout del comercio.
+   2. Comercio llama a API payment-services/push-payment.
+   3. Nequi envía notificación a la app del usuario.
+   4. Usuario acepta.
+   5. Nequi debita y notifica al comercio.
+* Prueba en Sandbox: El reto aquí es la asincronía. El comercio debe probar que su endpoint de callback (Webhook) puede recibir, decodificar y procesar la confirmación de Nequi, y actualizar la orden de compra en su base de datos en tiempo real. Se debe verificar el manejo de condiciones de carrera y la validación de la autenticidad de la notificación (para evitar ataques de inyección de pagos falsos).
+6.2 Modelo 2: Código QR (Presencial y Digital)
+* Flujo:
+   1. Comercio solicita generación de QR (payment-services/qr-code).
+   2. Nequi devuelve una cadena de texto (QR String).
+   3. Comercio renderiza el QR.
+   4. Usuario escanea y paga.
+* Prueba en Sandbox: Implica validar que el QR generado cumple con el estándar EMVCo. En pruebas, se pueden usar decodificadores de QR para validar que el payload contiene el monto y la referencia correctos. Además, se debe simular el pago exitoso asociado a ese QR Code ID.
+6.3 Modelo 3: Desembolsos y Giros (Cash-out)
+Utilizado para nóminas o devoluciones.
+* Flujo: El comercio envía dinero desde su cuenta Nequi hacia un tercero.
+* Prueba en Sandbox: Requiere configurar una cuenta origen con saldo ficticio. Las pruebas se centran en la validación de los topes transaccionales y la verificación de cuentas destino (validar si el número existe antes de enviar).
+6.4 Matriz de Pruebas Sugerida
+Para certificar la integración, se recomienda ejecutar la siguiente matriz:
+ID Escenario
+	Descripción
+	Resultado Esperado
+	Acción del Simulador
+	TC-001
+	Pago Push Exitoso
+	HTTP 200 + Webhook 'Approved'
+	Aprobar transacción.
+	TC-002
+	Pago Rechazado por Usuario
+	HTTP 200 + Webhook 'Declined'
+	Rechazar transacción.
+	TC-003
+	Fondos Insuficientes
+	HTTP 200 + Webhook 'InsufficientFunds'
+	Usar usuario sin saldo.
+	TC-004
+	Timeout del Usuario
+	Webhook 'Expired'
+	No realizar acción por 45s.
+	TC-005
+	Token Expirado
+	HTTP 401 Unauthorized
+	Usar token viejo.
+	TC-006
+	Error de Estructura
+	HTTP 400 Bad Request
+	Enviar JSON malformado.
+	________________
+7. Resolución de Problemas y Códigos de Error Comunes
+Durante el proceso de solicitud e integración inicial, es inevitable encontrar errores. Comprender la taxonomía de errores de Nequi acelera la resolución.
+7.1 Errores de Capa 4 (Cliente)
+* 400 Bad Request: Generalmente indica un error en la validación del esquema JSON. Puede ser un campo obligatorio faltante (messageId, phoneNumber), un tipo de dato incorrecto (string en lugar de entero) o un formato de fecha inválido.
+* 401 Unauthorized: Fallo en la autenticación. Revisar validez del token o correspondencia entre Client ID y Secret.
+* 403 Forbidden: El token es válido, pero la App no tiene permiso para consumir ese recurso específico. Solución: Revisar la configuración de "Productos" en Nequi Conecta.
+* 429 Too Many Requests: Se ha excedido el límite de tasa. En Sandbox, estos límites son más bajos que en producción.
+7.2 Errores de Capa 5 (Servidor)
+* 500 Internal Server Error: Error no controlado en Nequi. Si persiste, se debe contactar a soporte con el messageId de la petición.
+* 502 Bad Gateway: Problemas de conectividad en la infraestructura de Nequi.
+* 504 Gateway Timeout: Nequi tardó demasiado en responder. El cliente debe tener lógica de reintentos (Retry Logic) con espera exponencial (Exponential Backoff).
+7.3 Errores de Negocio (Dentro del JSON)
+A veces el HTTP es 200, pero la transacción falló. Esto viene en el cuerpo de la respuesta.
+* Codigos de Rechazo: 2-MP-BP-001 (Saldo insuficiente), 2-MP-BP-016 (Usuario no existe), etc. El manual de integración de Nequi provee un diccionario completo de estos códigos internos que deben ser mapeados a mensajes amigables para el usuario final del comercio.
+________________
+8. Transición a Producción: De la Solicitud al "Go-Live"
+El objetivo final de solicitar acceso al Sandbox es operar en Producción. Este paso no es automático; es un proceso formal de certificación.
+8.1 El Proceso de Certificación Técnica
+Nequi exige evidencia de que la integración funciona correctamente.
+1. Bitácora de Pruebas: El aliado debe enviar un reporte (logs, capturas) demostrando la ejecución exitosa de la matriz de pruebas (casos de éxito y fracaso).
+2. Revisión de Seguridad: Se puede solicitar un cuestionario sobre cómo el aliado almacena el Client Secret y los datos de los usuarios.
+3. Validación de UX: Nequi revisa cómo se usa su marca en la interfaz del comercio. El botón de pago debe cumplir con los lineamientos gráficos (colores, logo correcto).
+8.2 Intercambio de Llaves Productivas
+Una vez aprobada la certificación:
+1. Se habilita la creación de una App en el entorno "Producción" dentro del portal.
+2. Se generan nuevas credenciales (Client ID y Secret Productivos). Nunca se deben usar las de Sandbox en Producción ni viceversa.
+3. Cambio de Endpoints: Se debe actualizar la URL base de la API (ej. de api.sandbox.nequi.com a api.nequi.com).
+8.3 "Soft Launch" y Monitoreo (Hypercare)
+Se recomienda iniciar con un lanzamiento controlado (a un grupo pequeño de usuarios) y mantener un monitoreo intensivo ("Hypercare") durante las primeras semanas. Esto implica revisar logs en tiempo real para detectar errores que no aparecieron en Sandbox (ej. timeouts reales de red, comportamientos inesperados de usuarios reales).
+________________
+9. Consideraciones Estratégicas y Futuro de la Integración
+La integración con Nequi no es estática. El ecosistema evoluciona, y la solicitud de acceso inicial es solo el comienzo de una relación tecnológica.
+9.1 Versionamiento de la API
+Nequi actualiza sus servicios. Las URLs suelen incluir la versión (ej. /v1/, /v2/). Es responsabilidad del equipo técnico del comercio estar atento a los boletines de desarrolladores para migrar a nuevas versiones antes de que las antiguas sean depreciadas (Deprecation Policy).
+9.2 Escalabilidad
+A medida que el negocio crece, los límites de transacción por segundo (TPS) definidos en la solicitud inicial pueden quedarse cortos. El proceso de solicitud de "aumento de cuota" implica una revisión comercial y técnica de la capacidad de la infraestructura del aliado para manejar mayor concurrencia.
+9.3 Innovación Conjunta
+El acceso al Sandbox también permite experimentar con nuevas funcionalidades beta que Nequi lance al mercado (ej. integración con mini-apps dentro de Nequi, pagos con biometría). Mantener el acceso activo al Sandbox permite a las empresas innovar continuamente sin arriesgar su operación principal.
+________________
+10. Conclusión y Recomendaciones Finales
+El proceso de solicitud de ingreso al entorno de pruebas de la API de Nequi es un procedimiento riguroso que filtra no solo la intención legal de una empresa, sino su madurez tecnológica. No es un simple formulario de registro; es la adhesión a un estándar de operación financiera digital.
+Para maximizar las probabilidades de una integración exitosa y rápida, se recomienda:
+1. Preparación Legal Anticipada: Tener RUT y Cámara de Comercio al día antes de siquiera abrir el portal de desarrolladores.
+2. Competencia Técnica: Asegurar que el equipo de desarrollo domine OAuth 2.0 y tenga herramientas de prueba (Postman, Insomnia) listas.
+3. Seguridad por Diseño: Implementar TLS y gestión segura de secretos desde el día 1 en el entorno de desarrollo local.
+4. Enfoque en la Experiencia de Usuario: Diseñar los flujos de pago pensando en la reducción de fricción, aprovechando las capacidades asíncronas de la API.
+Seguir esta guía exhaustiva garantiza no solo la obtención de las credenciales de acceso, sino la construcción de una infraestructura de pagos robusta, segura y escalable, preparada para operar en el exigente mercado financiero colombiano.

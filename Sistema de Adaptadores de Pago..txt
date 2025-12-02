@@ -1,0 +1,300 @@
+﻿Sistema de Adaptadores de Pago.
+
+
+Para garantizar que la aplicación SaaS escale sin convertirse en un "monstruo de Frankenstein" de código, la clave es la abstracción. No debes pensar en "integrar Stripe" o "integrar Mercado Pago" directamente en tus componentes de venta, sino en crear un Sistema de Adaptadores de Pago.
+
+Esta es la implementación técnica de la Capa de Abstracción de Pagos. El objetivo es crear un "contrato" estricto en TypeScript que todas las pasarelas deben cumplir. Esto permite que tu Frontend y tu lógica de negocio (Checkout) no dependan directamente de si el cliente usa Stripe o Mercado Pago.
+
+Estructura de Carpetas Sugerida
+
+
+
+
+Plaintext
+
+
+
+
+/lib
+ /payments
+   ├── types.ts           # Definiciones de datos comunes
+   ├── interface.ts       # El "Contrato" (PaymentProvider)
+   ├── factory.ts         # El "Orquestador" que elige la pasarela
+   ├── encryption.ts      # Utilidad para KMS (Simulada)
+   └── /adapters
+       ├── stripe.ts      # Implementación concreta de Stripe
+       ├── mercadopago.ts # Implementación concreta de MP
+       └── paypal.ts      # Implementación concreta de PayPal
+
+________________
+
+
+1. Tipos Comunes (types.ts)
+
+
+Aquí definimos el lenguaje universal de tu aplicación. El frontend solo debe conocer estos tipos, nunca los objetos crudos de las SDKs externas.
+
+
+TypeScript
+
+
+
+
+// lib/payments/types.ts
+
+// Identificadores de las pasarelas soportadas
+export type PaymentProviderId = 'stripe' | 'mercadopago_co' | 'mercadopago_mx' | 'paypal';
+
+// Estructura de las credenciales desencriptadas (lo que necesita el adaptador para funcionar)
+export interface DecryptedCredentials {
+ accessToken?: string;
+ refreshToken?: string;
+ clientId?: string;
+ clientSecret?: string; // Para PayPal o flujos manuales
+ accountId?: string;    // Stripe Connect ID o MP User ID
+ expiresAt?: number;    // Para control de renovación de tokens MP [cite: 114]
+}
+
+// Parámetros para iniciar un cobro
+export interface CreateCheckoutParams {
+ tenantId: string;        // ID de la empresa organizadora
+ orderId: string;         // Tu ID interno de orden
+ amount: number;          // Monto total (ej: 10000)
+ currency: string;        // 'COP', 'USD', 'MXN'
+ description: string;
+ payerEmail?: string;
+ 
+ // Split Payments: La parte crítica para tu modelo de negocio [cite: 7]
+ applicationFee: number;  // Tu comisión como plataforma
+ connectedAccountId: string; // ID de la cuenta del organizador (destino de fondos)
+}
+
+// Respuesta estandarizada para el frontend
+export interface CheckoutResponse {
+ checkoutUrl: string;     // URL a donde redirigir al usuario (Stripe Hosted o MP Pro)
+ sessionId: string;       // ID de sesión de la pasarela
+ providerMetadata?: any;  // Datos extra si se requieren
+}
+
+________________
+
+
+2. El Contrato (interface.ts)
+
+
+Cualquier integración nueva que programes en el futuro (ej: Wompi) debe implementar esta clase obligatoriamente.
+
+
+TypeScript
+
+
+
+
+// lib/payments/interface.ts
+import { CreateCheckoutParams, CheckoutResponse, DecryptedCredentials } from './types';
+
+export interface PaymentProvider {
+ providerId: string;
+
+ /**
+  * Genera la URL para que el organizador vincule su cuenta (OAuth).
+  * @param state Token anti-CSRF y metadata del tenant[cite: 74].
+  * @param redirectUri URL de retorno configurada en tu app.
+  */
+ getOnboardingUrl(state: string, redirectUri: string): Promise<string>;
+
+ /**
+  * Intercambia el código temporal por credenciales permanentes.
+  * Debe devolver las credenciales listas para ser cifradas.
+  */
+ authorizeTenant(authorizationCode: string): Promise<DecryptedCredentials>;
+
+ /**
+  * Genera una sesión de pago (Split Payment).
+  * Aquí ocurre la magia de separar tu comisión del dinero del cliente[cite: 89, 125].
+  */
+ createCheckoutSession(
+   params: CreateCheckoutParams, 
+   credentials: DecryptedCredentials
+ ): Promise<CheckoutResponse>;
+
+ /**
+  * (Opcional) Verifica si el token está vencido y lo renueva.
+  * Crítico para Mercado Pago[cite: 114, 115].
+  */
+ refreshTokenIfNeeded?(currentCredentials: DecryptedCredentials): Promise<DecryptedCredentials | null>;
+}
+
+________________
+
+
+3. El Orquestador (factory.ts)
+
+
+Esta es la pieza clave. Es la función que recibe el tenantId, busca en la base de datos segura, descifra las claves y te devuelve el adaptador listo para usar.
+
+
+TypeScript
+
+
+
+
+// lib/payments/factory.ts
+import { db } from '@/lib/firebase/admin'; // Tu instancia de admin
+import { decrypt } from './encryption'; // Función helper KMS
+import { StripeProvider } from './adapters/stripe';
+import { MercadoPagoProvider } from './adapters/mercadopago';
+import { PaymentProvider } from './interface';
+import { PaymentProviderId } from './types';
+
+// Mapa de clases disponibles
+const adapters: Record<string, new () => PaymentProvider> = {
+ 'stripe': StripeProvider,
+ 'mercadopago_co': MercadoPagoProvider, // Podrías reusar la clase MP con config diferente
+ 'mercadopago_mx': MercadoPagoProvider,
+ // 'paypal': PayPalProvider (Pendiente fase BYOK [cite: 167])
+};
+
+export async function getPaymentProvider(tenantId: string): Promise<PaymentProvider> {
+ // 1. Buscar configuración pública del tenant para saber qué pasarela usa
+ // [cite: 29] Separación de config pública vs privada
+ const publicConfigSnap = await db.doc(`tenants/${tenantId}/config/public`).get();
+ const publicData = publicConfigSnap.data();
+
+ if (!publicData || !publicData.activeProvider) {
+   throw new Error(`El tenant ${tenantId} no tiene pasarela configurada.`);
+ }
+
+ const providerId = publicData.activeProvider as PaymentProviderId;
+ const AdapterClass = adapters[providerId];
+
+ if (!AdapterClass) {
+   throw new Error(`Proveedor ${providerId} no implementado.`);
+ }
+
+ const provider = new AdapterClass();
+
+ // NOTA: Para métodos como 'createCheckoutSession', el factory podría
+ // encargarse aquí mismo de buscar y desencriptar las credenciales
+ // para inyectarlas, manteniendo esa lógica centralizada y segura.
+
+ return provider;
+}
+
+/**
+* Función helper para obtener credenciales listas para usar (Decrypted).
+* Implementa el patrón "Just-in-Time decryption"[cite: 40].
+*/
+export async function getTenantCredentials(tenantId: string) {
+ // Acceso restringido solo via Admin SDK [cite: 31]
+ const secretsSnap = await db.doc(`tenants/${tenantId}/config/secrets`).get();
+ const encryptedData = secretsSnap.data();
+
+ if (!encryptedData) throw new Error('Credenciales no encontradas');
+
+ // Descifrar usando KMS antes de devolver
+ // El token plano nunca tocó el disco [cite: 41]
+ const credentials = await decrypt(encryptedData.cipherText); 
+ 
+ return JSON.parse(credentials);
+}
+
+________________
+
+
+4. Ejemplo de Implementación: Adaptador Stripe
+
+
+Este archivo muestra cómo StripeProvider cumple el contrato definido arriba.
+
+
+TypeScript
+
+
+
+
+// lib/payments/adapters/stripe.ts
+import Stripe from 'stripe';
+import { PaymentProvider } from '../interface';
+import { CreateCheckoutParams, CheckoutResponse, DecryptedCredentials } from '../types';
+
+export class StripeProvider implements PaymentProvider {
+ providerId = 'stripe';
+ private platformStripe: Stripe;
+
+ constructor() {
+   // Inicializar con la Secret Key de la PLATAFORMA (tu cuenta)
+   this.platformStripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+     apiVersion: '2023-10-16',
+   });
+ }
+
+ async getOnboardingUrl(state: string, redirectUri: string): Promise<string> {
+   const params = new URLSearchParams({
+     response_type: 'code',
+     client_id: process.env.STRIPE_CLIENT_ID!,
+     scope: 'read_write',
+     redirect_uri: redirectUri,
+     state: state, // [cite: 74]
+   });
+   return `https://connect.stripe.com/oauth/authorize?${params.toString()}`;
+ }
+
+ async authorizeTenant(code: string): Promise<DecryptedCredentials> {
+   const response = await this.platformStripe.oauth.token({
+     grant_type: 'authorization_code',
+     code,
+   });
+   
+   // En Stripe Standard, el 'stripe_user_id' es lo más importante
+   return {
+     accountId: response.stripe_user_id,
+     accessToken: response.access_token, // Opcional en Standard
+     refreshToken: response.refresh_token,
+   };
+ }
+
+ async createCheckoutSession(
+   params: CreateCheckoutParams, 
+   credentials: DecryptedCredentials
+ ): Promise<CheckoutResponse> {
+   
+   // [cite: 88] Creación de sesión
+   const session = await this.platformStripe.checkout.sessions.create({
+     payment_method_types: ['card'],
+     mode: 'payment',
+     line_items: [{
+       price_data: {
+         currency: params.currency,
+         product_data: { name: params.description },
+         unit_amount: Math.round(params.amount * 100), // Centavos
+       },
+       quantity: 1,
+     }],
+     payment_intent_data: {
+       // [cite: 89] Aquí cobras tu comisión
+       application_fee_amount: Math.round(params.applicationFee * 100),
+       // [cite: 89] Aquí diriges los fondos al tenant
+       transfer_data: {
+         destination: credentials.accountId!, 
+       },
+     },
+     success_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?order=${params.orderId}`,
+     cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/cancel`,
+   });
+
+   return {
+     checkoutUrl: session.url!,
+     sessionId: session.id,
+   };
+ }
+}
+
+
+
+Siguientes Pasos Recomendados
+
+
+1. Implementar lib/payments/encryption.ts: Debes crear la función encrypt y decrypt usando @google-cloud/kms. Esto es crucial porque el documento indica que guardar tokens planos en Firestore es una vulnerabilidad crítica2.
+
+2. Adaptador Mercado Pago: Crear lib/payments/adapters/mercadopago.ts. El reto principal allí será implementar el método refreshTokenIfNeeded ya que sus tokens caducan cada 6 horas3.

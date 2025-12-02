@@ -7,6 +7,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { showToast } from "@/lib/toast";
+import { EventDistributionSchema } from "@/lib/schemas/eventSchema";
 
 export default function Step3Distribution() {
     const {
@@ -258,7 +259,16 @@ export default function Step3Distribution() {
                     Atrás
                 </button>
                 <button
-                    onClick={() => setStep(4)}
+                    onClick={() => {
+                        const result = EventDistributionSchema.safeParse({ methods: distribution.methods });
+                        if (result.success && !needsGuestList) {
+                            setStep(4);
+                        } else {
+                            if (!result.success) {
+                                showToast.error("Selecciona al menos un método de distribución");
+                            }
+                        }
+                    }}
                     disabled={!hasAtLeastOneMethod || needsGuestList}
                     className={`px-8 py-3.5 rounded-xl transition-all font-semibold shadow-lg flex items-center gap-2 ${hasAtLeastOneMethod && !needsGuestList
                         ? "bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-xl hover:-translate-y-0.5"
